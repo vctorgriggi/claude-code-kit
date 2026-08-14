@@ -293,6 +293,51 @@ test("a saída de exemplo do README tem o formato que a ferramenta emite", async
   assert.match(bloco, /^resumo: \d+ violação\(ões\)/m);
 });
 
+test("toda feature de CLI documentada existe e tem teste", async () => {
+  // Esta guarda pegou uma feature fantasma no primeiro uso: a ajuda anunciava
+  // panorama de vários diretórios e o main() só lia o primeiro argumento.
+  // Documentar sem implementar é a pior variante — o usuário confia e não há
+  // erro nenhum.
+  const readme = await ler("README.md");
+  const ajuda = await ler("bin/codecheck.mjs");
+  const suites = (
+    await Promise.all(
+      (await listar("test", ".test.mjs"))
+        .filter((f) => f !== "completude.test.mjs")
+        .map((f) => ler(`test/${f}`)),
+    )
+  ).join("\n");
+
+  const flags = new Set(
+    [...`${readme}\n${ajuda}`.matchAll(/codecheck[^\n`]*\s(--[a-z-]+)/g)].map((m) => m[1]),
+  );
+  assert.ok(flags.size >= 3, "não achei as flags documentadas");
+
+  for (const flag of flags) {
+    assert.ok(ajuda.includes(`"${flag}"`), `${flag} é documentada e o CLI não a conhece`);
+    assert.ok(suites.includes(flag), `${flag} é documentada e nenhuma suíte a exercita`);
+  }
+
+  // Formas de invocação que a ajuda anuncia sem serem flag.
+  if (/<dir>\s+<dir>/.test(ajuda)) {
+    assert.match(
+      ajuda,
+      /dirs\.length <= 1/,
+      "a ajuda anuncia panorama de vários diretórios e o CLI não o implementa",
+    );
+    assert.match(
+      suites,
+      /panorama/i,
+      "o panorama é documentado e nenhuma suíte o exercita",
+    );
+  }
+
+  if (readme.includes("codecheck: ignore")) {
+    assert.ok(ajuda.includes("codecheck:"), "a supressão documentada não existe");
+    assert.ok(suites.includes("codecheck: ignore"), "a supressão não é exercitada");
+  }
+});
+
 test("as contagens escritas à mão batem com a realidade", async () => {
   const readme = await ler("README.md");
   const declarado = readme.match(/(\d+) regras mecânicas/);

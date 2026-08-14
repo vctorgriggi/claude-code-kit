@@ -397,6 +397,37 @@ test("--json emite o contrato que os comandos consomem", async () => {
   }
 });
 
+test("panorama: vários diretórios, e o que não tem código some da lista", async () => {
+  const comCodigo = await projeto({ "src/a.js": "// TODO: sem rastro\nexport const a = 1;" });
+  const limpo = await projeto({ "src/b.js": "export const b = 1;\nimport './b.js';" });
+  const vazio = await mkdtemp(path.join(tmpdir(), "codecheck-nada-"));
+
+  const rodar = (args) => {
+    try {
+      return { code: 0, out: execFileSync("node", [BIN, ...args], { encoding: "utf8" }) };
+    } catch (e) {
+      return { code: e.status, out: e.stdout ?? "" };
+    }
+  };
+
+  const r = rodar([comCodigo, limpo, vazio]);
+  assert.equal(r.code, 1, "um projeto com violação precisa reprovar o panorama");
+  assert.match(r.out, /resumo: 1 de 2 projeto\(s\) com violação/);
+  assert.doesNotMatch(
+    r.out,
+    new RegExp(path.basename(vazio)),
+    "diretório sem código poluiu o panorama",
+  );
+
+  // Todos limpos: exit 0.
+  assert.equal(rodar([limpo, limpo]).code, 0);
+
+  // Nenhum é alvo: diz isso, e não é erro.
+  const nada = rodar([vazio, await mkdtemp(path.join(tmpdir(), "codecheck-nada2-"))]);
+  assert.equal(nada.code, 0);
+  assert.match(nada.out, /nenhum código encontrado/);
+});
+
 test("o CLI roda por symlink sem sair 0 em silêncio", async () => {
   // Regressão herdada do irmão: guarda de entry-point por string de URL falha
   // quando o caminho passa por symlink, e o processo sai 0 sem verificar nada.

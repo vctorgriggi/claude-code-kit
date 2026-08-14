@@ -147,7 +147,7 @@ export const REGRAS = [
     promovivel: true,
     titulo: "símbolo exportado que nenhum outro arquivo menciona",
     porque:
-      "Export sem consumidor é peso: entra no autocomplete, entra na revisão, e mantém vivo todo o código que ele arrasta. Aviso e nunca violação — acesso dinâmico, reflexão, API pública e entry point de framework fazem um símbolo parecer morto sem estar. Aqui sai o candidato; a prova de morte é de quem lê.",
+      "Export sem consumidor é peso: entra no autocomplete, entra na revisão, e mantém vivo todo o código que ele arrasta. Aviso e nunca violação — acesso dinâmico, reflexão, API pública e entry point de framework fazem um símbolo parecer morto sem estar. A regra também é sensível ao escopo: rodar numa subpasta esconde o consumidor que mora fora dela, então rode na raiz do projeto antes de acreditar no achado. Aqui sai o candidato; a prova de morte é de quem lê.",
     ok: "`cotar` é exportado, e `borda/http.js` o importa",
     ruim: "`calcularAntigo` é exportado, e nenhum outro arquivo do repositório o menciona",
   },
@@ -291,7 +291,9 @@ async function morto(raiz, arquivos, achar) {
         }
       }
     } catch {
-      /* manifest ilegível não muda o veredito de nenhuma regra */
+      /* manifest ilegível — nenhuma regra depende dele para acusar, e falhar
+         aqui deixaria o repositório inteiro sem verificação por causa de uma
+         vírgula em package.json */
     }
   }
 
@@ -633,27 +635,75 @@ async function main() {
   }
   const opcoes = args.includes("--strict") ? { strict: true } : {};
 
-  try {
-    const r = await verificar(dirs[0] || ".", opcoes);
-    if (args.includes("--json")) {
-      console.log(JSON.stringify({ gramatica: GRAMATICA, ...r }, null, 2));
-      process.exit(r.violacoes.length === 0 ? 0 : 1);
+  const json = args.includes("--json");
+
+  // --- um diretório: o modo de sempre ---
+  if (dirs.length <= 1) {
+    try {
+      const r = await verificar(dirs[0] || ".", opcoes);
+      if (json) {
+        console.log(JSON.stringify({ gramatica: GRAMATICA, ...r }, null, 2));
+        process.exit(r.violacoes.length === 0 ? 0 : 1);
+      }
+      for (const v of r.violacoes) console.log(`${v.arquivo}:${v.linha} [${v.id}] ${v.msg}`);
+      for (const a of r.avisos) console.log(`${a.arquivo}:${a.linha} [${a.id}] aviso: ${a.msg}`);
+      if (r.violacoes.length === 0) {
+        console.log(
+          `ok: zelo ${GRAMATICA} sem violações mecânicas (${r.arquivos} arquivo(s))` +
+            (r.avisos.length ? ` — ${r.avisos.length} aviso(s)` : ""),
+        );
+        process.exit(0);
+      }
+      console.log(`resumo: ${r.violacoes.length} violação(ões)`);
+      process.exit(1);
+    } catch (e) {
+      console.error(`erro: ${e.message}`);
+      process.exit(2);
     }
-    for (const v of r.violacoes) console.log(`${v.arquivo}:${v.linha} [${v.id}] ${v.msg}`);
-    for (const a of r.avisos) console.log(`${a.arquivo}:${a.linha} [${a.id}] aviso: ${a.msg}`);
-    if (r.violacoes.length === 0) {
-      console.log(
-        `ok: zelo ${GRAMATICA} sem violações mecânicas (${r.arquivos} arquivo(s))` +
-          (r.avisos.length ? ` — ${r.avisos.length} aviso(s)` : ""),
-      );
-      process.exit(0);
-    }
-    console.log(`resumo: ${r.violacoes.length} violação(ões)`);
-    process.exit(1);
-  } catch (e) {
-    console.error(`erro: ${e.message}`);
-    process.exit(2);
   }
+
+  // --- vários: panorama. Diretório sem código não é erro, é "não é alvo". ---
+  const linhas = [];
+  let comViolacao = 0;
+  for (const d of dirs) {
+    try {
+      const r = await verificar(d, opcoes);
+      if (r.violacoes.length) comViolacao++;
+      linhas.push({ dir: d, ...r });
+    } catch (e) {
+      if (/nenhum arquivo de código/.test(e.message)) continue;
+      linhas.push({ dir: d, erro: e.message });
+      comViolacao++;
+    }
+  }
+
+  if (json) {
+    console.log(JSON.stringify({ gramatica: GRAMATICA, projetos: linhas }, null, 2));
+    process.exit(comViolacao ? 1 : 0);
+  }
+  if (!linhas.length) {
+    console.log(`nenhum código encontrado em ${dirs.length} diretório(s)`);
+    process.exit(0);
+  }
+  const larg = Math.max(...linhas.map((l) => path.basename(l.dir).length));
+  for (const l of linhas) {
+    const nome = path.basename(l.dir).padEnd(larg);
+    if (l.erro) {
+      console.log(`${nome}  erro: ${l.erro}`);
+      continue;
+    }
+    const estado = l.violacoes.length
+      ? `${l.violacoes.length} violação(ões)`
+      : l.avisos.length
+        ? `ok — ${l.avisos.length} aviso(s)`
+        : "ok";
+    console.log(`${nome}  ${estado}`);
+    for (const a of [...l.violacoes, ...l.avisos].slice(0, 3)) {
+      console.log(`${" ".repeat(larg)}    ${a.arquivo}:${a.linha} [${a.id}] ${a.msg}`);
+    }
+  }
+  console.log(`\nresumo: ${comViolacao} de ${linhas.length} projeto(s) com violação`);
+  process.exit(comViolacao ? 1 : 0);
 }
 
 // Entry-point por realpath: em macOS `/tmp` e `/var` são symlinks, e symlinkar
