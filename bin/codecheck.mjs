@@ -42,6 +42,10 @@ const LIMITE_ARQUIVO = 400; // linhas
 const LIMITE_FUNCAO = 60; // linhas
 const MIN_REPETICOES = 3; // literal repetido a partir da terceira ocorrência
 
+// Um único lugar decide o que é arquivo de teste: a família T só roda neles, e
+// o D1 os ignora ao contar literais.
+const ehTeste = (rel) => /\.(test|spec)\.[jt]sx?$|(^|\/)tests?\//.test(rel);
+
 export const REGRAS = [
   {
     id: "J1",
@@ -110,9 +114,30 @@ export const REGRAS = [
     promovivel: true,
     titulo: "literal repetido três vezes ou mais",
     porque:
-      "A terceira ocorrência é onde o custo vira real: alguém vai mudar duas e esquecer a terceira. Duas é coincidência; três é uma constante que ninguém nomeou.",
+      "A terceira ocorrência é onde o custo vira real: alguém vai mudar duas e esquecer a terceira. Duas é coincidência; três é uma constante que ninguém nomeou. Arquivo de teste não conta — teste deve cravar o valor esperado, senão a asserção compara a constante consigo mesma e não prova nada.",
     ok: "const TIMEOUT_MS = 5000; // usado nos três lugares",
     ruim: "fetch(u, { timeout: 5000 }) … retry(5000) … esperar(5000)",
+  },
+  {
+    id: "C1",
+    familia: "Contrato",
+    severidade: "violacao",
+    titulo: "import não cruza a fronteira declarada no CLAUDE.md",
+    porque:
+      "A árvore comentada da Estrutura declara o que cada pasta é e o que ela nunca importa. Um linter genérico não sabe disso — só o contrato do projeto sabe. Import que cruza a fronteira é a violação mais cara de desfazer, porque a dependência se espalha antes de alguém notar.",
+    ok: "CLAUDE.md: `dominio/ # nunca importa de borda/`\nsrc/dominio/frete.js importa só de dominio/",
+    ruim: "o mesmo contrato, e `src/dominio/frete.js` com `import { db } from '../borda/db.js'`",
+  },
+  {
+    id: "C2",
+    familia: "Contrato",
+    severidade: "aviso",
+    promovivel: true,
+    titulo: 'proibição do "Nunca fazer" que virou grep',
+    porque:
+      "Cada proibição do CLAUDE.md nomeia um símbolo concreto na maioria dos casos — `var`, `any`, `float`, `process.exit`. Quando nomeia, dá para procurar. Aviso e não violação porque o texto é prosa: a correspondência é heurística e o julgamento final é de quem lê.",
+    ok: 'CLAUDE.md proíbe `float` para dinheiro; o código só usa centavos inteiros',
+    ruim: 'a mesma proibição, e `const preco = 19.90` no código',
   },
   {
     id: "V1",
@@ -169,6 +194,51 @@ function semStrings(linha) {
     .replace(/`(?:[^`\\]|\\.)*`/g, "``");
 }
 
+// --- o contrato do projeto ------------------------------------------------
+//
+// Sem CLAUDE.md, a família C não roda e o kit continua útil — é a dependência
+// graciosa. Com ele, o verificador passa a cobrar o que ESTE projeto declarou,
+// que é a coisa que nenhuma ferramenta genérica consegue.
+
+// Fronteiras da árvore comentada da Estrutura: `pasta/ # … nunca importa de X`.
+function fronteiras(claude) {
+  const fim = claude.slice(claude.indexOf("## Estrutura"));
+  const bloco = fim.match(/```[^\n]*\n([\s\S]*?)```/);
+  if (!bloco) return [];
+  const out = [];
+  for (const l of bloco[1].split("\n")) {
+    const nome = l.match(/^\s*([\w.@-]+)\/\s*#(.*)$/);
+    if (!nome) continue;
+    for (const p of nome[2].matchAll(/nunca importa (?:de|da|do)\s+`?([\w.@/-]+?)\/?`?(?:[\s,.)]|$)/gi)) {
+      out.push({ de: nome[1], nao: p[1] });
+    }
+  }
+  return out;
+}
+
+// Símbolos concretos citados em crase dentro do "Nunca fazer".
+function proibicoes(claude) {
+  const sec = claude.slice(claude.indexOf("## Nunca fazer"));
+  const corpo = sec.slice(0, sec.slice(2).search(/^## /m) + 2 || undefined);
+  const out = [];
+  for (const l of corpo.split("\n")) {
+    if (!/^- Nunca /.test(l)) continue;
+    for (const m of l.matchAll(/`([^`\n]{2,40})`/g)) {
+      const s = m[1];
+      // Só token de código dá para procurar.
+      if (!/^[\w.@$-]+$/.test(s)) continue;
+      // Caminho ou pasta é assunto de fronteira (C1), não token proibido —
+      // sem isto, `borda/` citado num comentário viraria achado.
+      if (s.includes("/") || s.endsWith("/")) continue;
+      // O que outra família já cobre melhor não vira achado duplicado aqui:
+      // `any` e `@ts-ignore` são J1, que sabe distinguir com e sem justificativa.
+      if (/^(any|@ts-\w+|eslint-disable[\w-]*)$/.test(s)) continue;
+      out.push({ simbolo: s, regra: l.replace(/^- /, "").trim() });
+    }
+  }
+  return out;
+}
+
 export async function verificar(dirs, opcoes = {}) {
   const strict = opcoes.strict === true;
   const achados = [];
@@ -188,10 +258,44 @@ export async function verificar(dirs, opcoes = {}) {
 
   const literais = new Map(); // valor → [{arquivo, linha}]
 
+  // O contrato, quando existe. Ausente: a família C não roda (dependência
+  // graciosa) e nada disso vira violação inventada.
+  const pClaude = path.join(raiz, "CLAUDE.md");
+  const claude = existsSync(pClaude) ? await readFile(pClaude, "utf8") : null;
+  const FRONTEIRAS = claude ? fronteiras(claude) : [];
+  const PROIBIDOS = claude ? proibicoes(claude) : [];
+
   for (const abs of arquivos) {
     const rel = path.relative(raiz, abs);
     const texto = await readFile(abs, "utf8");
     const linhas = texto.split("\n");
+
+    // C1 — import cruzando fronteira declarada
+    for (const f of FRONTEIRAS) {
+      if (!rel.split(path.sep).includes(f.de)) continue;
+      for (const m of texto.matchAll(/(?:^|\n)\s*(?:import[^\n]*?from\s*|.*?\brequire\s*\()\s*['"]([^'"]+)['"]/g)) {
+        const alvo = m[1];
+        const resolvido = alvo.startsWith(".")
+          ? path.normalize(path.join(path.dirname(rel), alvo))
+          : alvo;
+        if (resolvido.split(/[\\/]/).includes(f.nao)) {
+          const linha = texto.slice(0, m.index).split("\n").length + 1;
+          achar(rel, linha, "C1", `\`${f.de}/\` importa de \`${f.nao}/\`, que o CLAUDE.md declara que ele nunca importa`);
+        }
+      }
+    }
+
+    // C2 — símbolo que o "Nunca fazer" proíbe, aparecendo no código
+    if (!ehTeste(rel)) {
+      linhas.forEach((l, i) => {
+        const codigo = semStrings(l);
+        for (const p of PROIBIDOS) {
+          const esc = p.simbolo.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+          if (!new RegExp(`(^|[^\\w.$-])${esc}([^\\w$-]|$)`).test(codigo)) continue;
+          achar(rel, i + 1, "C2", `usa \`${p.simbolo}\`, que o CLAUDE.md proíbe — "${p.regra}"`);
+        }
+      });
+    }
 
     if (linhas.length > LIMITE_ARQUIVO) {
       achar(rel, 1, "V1", `${linhas.length} linhas (limite brando: ${LIMITE_ARQUIVO})`);
@@ -219,8 +323,9 @@ export async function verificar(dirs, opcoes = {}) {
         }
       }
 
-      // D1 — literais candidatos a constante
-      for (const m of l.matchAll(/(?<![\w.])(\d{3,})(?![\w.])/g)) {
+      // D1 — literais candidatos a constante. Teste não conta: cravar o valor
+      // esperado é o trabalho dele; asserção contra a constante seria tautologia.
+      if (!ehTeste(rel)) for (const m of l.matchAll(/(?<![\w.])(\d{3,})(?![\w.])/g)) {
         const v = m[1];
         if (/^[01]+$/.test(v) || Number(v) === 100 || Number(v) === 1000) continue;
         if (!literais.has(v)) literais.set(v, []);
@@ -236,14 +341,17 @@ export async function verificar(dirs, opcoes = {}) {
       if (vazio) {
         const linha = texto.slice(0, m.index).split("\n").length;
         achar(rel, linha, "J3", "catch vazio: o erro some sem deixar rastro");
-      } else if (soComentario && !/—|--\s|\bporque\b|best-effort|opcional|ignora/i.test(corpo)) {
+        // "ignora" não entra na lista: repetir que se está ignorando é o
+        // problema, não a justificativa. O que vale é o motivo — travessão,
+        // "porque", ou um qualificador que explique a tolerância à falha.
+      } else if (soComentario && !/—|--\s|\bporque\b|best-effort|opcional|não bloqueia/i.test(corpo)) {
         const linha = texto.slice(0, m.index).split("\n").length;
         achar(rel, linha, "J3", "catch só com comentário que não diz por que ignorar");
       }
     }
 
     // --- família T: só em arquivo de teste ---
-    if (/\.(test|spec)\.[jt]sx?$|(^|\/)tests?\//.test(rel)) {
+    if (ehTeste(rel)) {
       const AFIRMA = /\b(assert|expect|should|t\.(ok|is|deepEqual)|assertEqual)\b/;
 
       // T1 — corpo de teste sem nenhuma asserção
