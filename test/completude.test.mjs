@@ -65,6 +65,58 @@ test("toda família do catálogo é explicada no texto normativo", async () => {
   );
 });
 
+test("a numeração das transcrições segue a ordem de consequência", async () => {
+  // A ordem é contrato de leitura, e o princípio é o mesmo que o /code:varrer
+  // usa para priorizar: o retrato primeiro, depois do que causa bug para o que
+  // causa atrito, e por último a lâmina que apaga. Sem esta guarda, a
+  // numeração vira ordem de escrita — que foi como ela nasceu.
+  const ORDEM = [
+    ["varrer", "o retrato"],
+    ["contrato", "CRÍTICO"],
+    ["gambiarra", "CRÍTICO"],
+    ["estrutura", "ALTO"],
+    ["comentarios", "MÉDIO"],
+    ["morto", "apaga"],
+  ];
+  const transcricoes = (await listar("examples"))
+    .filter((f) => /^\d\d-/.test(f))
+    .sort();
+
+  assert.equal(
+    transcricoes.length,
+    ORDEM.length,
+    `esperava ${ORDEM.length} transcrições, achei ${transcricoes.length}`,
+  );
+
+  for (const [i, arquivo] of transcricoes.entries()) {
+    const n = Number(arquivo.slice(0, 2));
+    assert.equal(n, i + 1, `numeração com buraco ou fora de ordem: ${arquivo}`);
+
+    const md = await ler(`examples/${arquivo}`);
+    const titulo = md.match(/^# Exemplo (\d+):/);
+    assert.ok(titulo, `${arquivo} não abre com "# Exemplo <n>: …"`);
+    assert.equal(
+      Number(titulo[1]),
+      n,
+      `${arquivo}: o nome diz ${n} e o título diz ${titulo[1]}`,
+    );
+
+    const [comando] = ORDEM[i];
+    assert.ok(
+      md.includes(`/code:${comando}`),
+      `${arquivo} deveria demonstrar /code:${comando} — a posição e o comando não batem`,
+    );
+  }
+
+  // E o índice precisa declarar o princípio, senão a ordem parece arbitrária.
+  const indice = await ler("examples/README.md");
+  assert.match(
+    indice,
+    /ordem é a mesma que o `\/code:varrer` usa|por consequência/i,
+    "o índice não explica por que a ordem é essa",
+  );
+});
+
 test("todo comando tem transcrição, entrada no README e caso de regressão", async () => {
   assert.ok(COMANDOS.length, "nenhum comando em commands/code/");
   const readme = await ler("README.md");

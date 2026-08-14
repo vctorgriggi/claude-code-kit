@@ -108,11 +108,16 @@ test("toda âncora de link resolve para um heading que existe", () => {
 });
 
 test("todo caminho deste repositório citado em crase existe", () => {
-  // Só cobra o que aponta para dentro daqui: `src/`, `dominio/` e afins
-  // descrevem o projeto-alvo, não este repositório.
+  // Quem fala de qual repositório: o README e a gramática descrevem **este**
+  // kit, e um caminho errado ali é erro. Os prompts de comando e as
+  // transcrições descrevem o projeto-alvo — `test/pedido.test.js` numa tabela
+  // de achados é ilustração, e colide com o `test/` real daqui por acaso.
+  const DESCREVE_ESTE_REPO = (r) =>
+    r === "README.md" || r.startsWith("grammar/");
+
   const faltando = [];
   for (const [p, md] of conteudo) {
-    if (rel(p).startsWith("examples/fixtures/")) continue;
+    if (!DESCREVE_ESTE_REPO(rel(p))) continue;
     for (const m of md.matchAll(/`([^`\n]+)`/g)) {
       const alvo = m[1].trim();
       if (!alvo.includes("/") || /^(~|\/|[a-z]+:)/i.test(alvo)) continue;

@@ -1,4 +1,4 @@
-# Exemplo 4: /code:comentarios e /code:duplicacao — o ruído e a decisão repetida
+# Exemplo 5: /code:comentarios e /code:duplicacao — o ruído e a decisão repetida
 
 ---
 

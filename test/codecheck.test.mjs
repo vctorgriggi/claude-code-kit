@@ -34,6 +34,9 @@ async function copiaDoLimpo(mutacoes = {}) {
 
 const ids = (r) => r.violacoes.map((v) => v.id);
 const avisos = (r) => r.avisos.map((v) => v.id);
+// Projeto de teste é mínimo: quase todo export nele fica sem consumidor, e o
+// M1 acusa com razão. Quem testa outra família filtra a sua.
+const semM1 = (lista) => lista.filter((i) => i !== "M1");
 
 // --- o fixture de referência ----------------------------------------------
 
@@ -212,6 +215,58 @@ test("C2: token proibido pelo Nunca fazer; pasta e any ficam de fora", async () 
   assert.equal(doC2[0].arquivo, path.join("src", "dominio", "abortar.js"));
 });
 
+// --- M: código morto, com a postura de "na dúvida, fica" -------------------
+
+test("M1: export sem consumidor acende; export usado por outro arquivo não", async () => {
+  const dir = await projeto({
+    "src/a.js": "export const usado = 1;\nexport const orfao = 2;\n",
+    "src/b.js": "import { usado } from './a.js';\nexport const c = usado;\n",
+    "src/index.js": "export { c } from './b.js';\n",
+  });
+  const r = await verificar(dir);
+  const m1 = r.avisos.filter((v) => v.id === "M1");
+  assert.equal(m1.length, 1);
+  assert.match(m1[0].msg, /`orfao`/);
+});
+
+test("M1 não acusa entry point, API do manifest, teste nem acesso dinâmico", async () => {
+  const dir = await projeto({
+    // entry point: exportar sem consumidor interno é o trabalho dele
+    "src/index.js": "export function bootstrap() { return 1; }\n",
+    "src/rotas/page.tsx": "export default function Page() { return null; }\nexport const revalidate = 60;\n",
+    "vite.config.js": "export default { plugins: [] };\n",
+    // API pública declarada no manifest
+    "lib/publico.js": "export function apiPublica() { return 1; }\n",
+    // acesso dinâmico: o nome só aparece dentro de string
+    "src/handlers.js": "export function viaNome() { return 2; }\n",
+    // Não exporta nada: o papel dele no teste é só citar `viaNome` dentro de
+    // uma string, provando que acesso dinâmico mantém o símbolo vivo.
+    "src/registro.js": "import './handlers.js';\nconst mapa = { 'viaNome': true };\nglobalThis.mapa = mapa;\n",
+    "package.json": JSON.stringify({ name: "x", type: "module", main: "lib/publico.js" }),
+    "test/a.test.js":
+      "import { test } from 'node:test';\nimport assert from 'node:assert/strict';\nexport const auxiliar = 1;\ntest('t', () => { assert.equal(1, 1); });",
+  });
+  const r = await verificar(dir, { strict: true });
+  assert.deepEqual(
+    r.violacoes.filter((v) => v.id === "M1").map((v) => v.arquivo),
+    [],
+    "M1 acusou algo que está vivo por convenção, manifest ou acesso dinâmico",
+  );
+});
+
+test("M1 é aviso, nunca violação sem --strict — prova de morte é do humano", async () => {
+  const dir = await projeto({
+    "src/a.js": "export const orfao = 1;\n",
+    "src/b.js": "export const outro = 2;\nimport './a.js';\n",
+  });
+  const brando = await verificar(dir);
+  assert.deepEqual(brando.violacoes, []);
+  assert.ok(brando.avisos.some((v) => v.id === "M1"));
+
+  const estrito = await verificar(dir, { strict: true });
+  assert.ok(estrito.violacoes.some((v) => v.id === "M1"));
+});
+
 // --- D e V: calibráveis ----------------------------------------------------
 
 test("D1: literal repetido 3× no código; teste não conta", async () => {
@@ -221,7 +276,7 @@ test("D1: literal repetido 3× no código; teste não conta", async () => {
       "import { test } from 'node:test';\nimport assert from 'node:assert/strict';\ntest('t', () => { assert.equal(5000, 5000); assert.equal(5000, 5000); });",
   });
   assert.deepEqual(
-    avisos(await verificar(comTeste)),
+    semM1(avisos(await verificar(comTeste))),
     [],
     "ocorrência em teste não pode empurrar o literal para o limiar",
   );
@@ -233,7 +288,7 @@ test("D1: literal repetido 3× no código; teste não conta", async () => {
       "export const c = () => esperar(5000);",
     ].join("\n"),
   });
-  assert.deepEqual(avisos(await verificar(soCodigo)), ["D1"]);
+  assert.deepEqual(semM1(avisos(await verificar(soCodigo))), ["D1"]);
 });
 
 test("--strict promove as calibráveis; as duras não mudam", async () => {
@@ -247,11 +302,11 @@ test("--strict promove as calibráveis; as duras não mudam", async () => {
   });
   const brando = await verificar(dir);
   assert.deepEqual(ids(brando), ["J2"]);
-  assert.deepEqual(avisos(brando), ["D1"]);
+  assert.deepEqual(semM1(avisos(brando)), ["D1"]);
 
   const estrito = await verificar(dir, { strict: true });
-  assert.deepEqual(ids(estrito).sort(), ["D1", "J2"]);
-  assert.deepEqual(avisos(estrito), []);
+  assert.deepEqual(semM1(ids(estrito)).sort(), ["D1", "J2"]);
+  assert.deepEqual(semM1(avisos(estrito)), []);
 });
 
 test("V1 e V2 são avisos: volume é sintoma, não doença", async () => {
@@ -264,7 +319,7 @@ test("V1 e V2 são avisos: volume é sintoma, não doença", async () => {
   });
   const r = await verificar(dir);
   assert.deepEqual(r.violacoes, []);
-  assert.deepEqual(avisos(r).sort(), ["V1", "V2"]);
+  assert.deepEqual(semM1(avisos(r)).sort(), ["V1", "V2"]);
 });
 
 // --- catálogo e CLI --------------------------------------------------------

@@ -141,6 +141,17 @@ export const REGRAS = [
     ruim: 'a mesma proibição, e `const preco = 19.90` no código',
   },
   {
+    id: "M1",
+    familia: "Morto",
+    severidade: "aviso",
+    promovivel: true,
+    titulo: "símbolo exportado que nenhum outro arquivo menciona",
+    porque:
+      "Export sem consumidor é peso: entra no autocomplete, entra na revisão, e mantém vivo todo o código que ele arrasta. Aviso e nunca violação — acesso dinâmico, reflexão, API pública e entry point de framework fazem um símbolo parecer morto sem estar. Aqui sai o candidato; a prova de morte é de quem lê.",
+    ok: "`cotar` é exportado, e `borda/http.js` o importa",
+    ruim: "`calcularAntigo` é exportado, e nenhum outro arquivo do repositório o menciona",
+  },
+  {
     id: "S1",
     familia: "Supressão",
     severidade: "violacao",
@@ -248,6 +259,97 @@ function proibicoes(claude) {
     }
   }
   return out;
+}
+
+// --- M1: candidatos a código morto -----------------------------------------
+//
+// A postura é a do §5: na dúvida, o código fica. Remover o que não estava morto
+// é o erro caro; deixar o que sobrava é o barato. Por isso a regra é aviso, e
+// por isso as exclusões abaixo são generosas — cada uma corresponde a uma forma
+// de um símbolo estar vivo sem que a busca textual consiga ver.
+
+// Arquivo que o mundo de fora chama, e cujos exports não precisam de
+// consumidor interno: entry point de projeto e convenção de framework.
+const ENTRY_POINT =
+  /(^|\/)(index|main|app|cli|server|setup|middleware|instrumentation)\.[jt]sx?$|(^|\/)(page|layout|route|loading|error|template|default|not-found)\.[jt]sx?$|\.config\.[jt]s$|\.d\.ts$/;
+
+async function morto(raiz, arquivos, achar) {
+  // O que o manifest expõe é API pública por definição.
+  const publicos = new Set();
+  const pkg = path.join(raiz, "package.json");
+  if (existsSync(pkg)) {
+    try {
+      const j = JSON.parse(await readFile(pkg, "utf8"));
+      for (const v of [j.main, j.module, j.types, ...Object.values(j.bin ?? {})]) {
+        if (typeof v === "string") publicos.add(path.normalize(v).replace(/^\.\//, ""));
+      }
+      const exp = j.exports;
+      if (typeof exp === "string") publicos.add(path.normalize(exp).replace(/^\.\//, ""));
+      else if (exp && typeof exp === "object") {
+        for (const v of Object.values(exp)) {
+          if (typeof v === "string") publicos.add(path.normalize(v).replace(/^\.\//, ""));
+        }
+      }
+    } catch {
+      /* manifest ilegível não muda o veredito de nenhuma regra */
+    }
+  }
+
+  // Um índice de tokens por arquivo, construído uma vez. Buscar cada export em
+  // cada arquivo seria quadrático e lento em repositório grande.
+  const tokens = new Map();
+  const conteudo = new Map();
+  for (const abs of arquivos) {
+    const texto = await readFile(abs, "utf8");
+    conteudo.set(abs, texto);
+    // Sem semStrings de propósito: nome citado dentro de string é acesso
+    // dinâmico, e acesso dinâmico conta como vivo.
+    tokens.set(abs, new Set(texto.match(/[A-Za-z_$][\w$]*/g) ?? []));
+  }
+
+  const EXPORTA = [
+    /^\s*export\s+(?:async\s+)?function\s+([A-Za-z_$][\w$]*)/gm,
+    /^\s*export\s+(?:const|let|var)\s+([A-Za-z_$][\w$]*)/gm,
+    /^\s*export\s+(?:abstract\s+)?class\s+([A-Za-z_$][\w$]*)/gm,
+    /^\s*export\s+(?:type|interface|enum)\s+([A-Za-z_$][\w$]*)/gm,
+  ];
+
+  for (const abs of arquivos) {
+    const rel = path.relative(raiz, abs);
+    // Entry point, API pública do manifest e teste ficam de fora: exportar sem
+    // consumidor interno é o trabalho deles.
+    if (ENTRY_POINT.test(rel) || publicos.has(rel) || ehTeste(rel)) continue;
+
+    const texto = conteudo.get(abs);
+    const linhas = texto.split("\n");
+
+    for (const padrao of EXPORTA) {
+      for (const m of texto.matchAll(padrao)) {
+        const nome = m[1];
+        const usado = arquivos.some(
+          (outro) => outro !== abs && tokens.get(outro).has(nome),
+        );
+        if (usado) continue;
+        const linha = texto.slice(0, m.index).split("\n").length;
+        // Reexport de barril (`export * from`) mantém vivo o que ele repassa;
+        // se algum arquivo reexporta esta pasta, não há como afirmar morte.
+        const reexportado = arquivos.some(
+          (outro) =>
+            outro !== abs &&
+            /export\s+\*\s+from/.test(conteudo.get(outro)) &&
+            conteudo.get(outro).includes(path.basename(rel, path.extname(rel))),
+        );
+        if (reexportado) continue;
+        achar(
+          rel,
+          linha,
+          "M1",
+          `\`${nome}\` é exportado e nenhum outro arquivo o menciona — confirme que não há acesso dinâmico nem consumidor externo antes de remover`,
+        );
+        void linhas;
+      }
+    }
+  }
 }
 
 export async function verificar(dirs, opcoes = {}) {
@@ -471,6 +573,8 @@ export async function verificar(dirs, opcoes = {}) {
   );
   achados.length = 0;
   achados.push(...efetivos);
+
+  await morto(raiz, arquivos, achar);
 
   achados.sort(
     (a, b) => a.arquivo.localeCompare(b.arquivo) || a.linha - b.linha,

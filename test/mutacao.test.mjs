@@ -76,6 +76,10 @@ const CASOS = [
         "export const c = () => aguardar(7500);",
       ].join("\n"))],
 
+  ["M1", (d) =>
+    editar(d, "src/dominio/frete.js", (s) =>
+      s + "\nexport function calcularAntigo() {\n  return 0;\n}\n")],
+
   ["S1", (d) =>
     gravar(d, "src/dominio/silencio.js",
       "// codecheck: ignore J2\n// TODO sem rastro\nexport const x = 1;\n")],

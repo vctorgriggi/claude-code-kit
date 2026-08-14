@@ -48,9 +48,10 @@ Cada uma resolve um tipo de achado, e todas **reportam antes de aplicar**:
 | --- | --- |
 | erro engolido, atalho, `@ts-ignore` sem motivo | [`/code:gambiarra`](03-gambiarra-e-testes.md) |
 | teste que não prova, ou promessa sem prova | [`/code:testes`](03-gambiarra-e-testes.md) |
-| ruído de comentário | [`/code:comentarios`](04-comentarios-e-duplicacao.md) |
-| a mesma decisão em dois lugares | [`/code:duplicacao`](04-comentarios-e-duplicacao.md) |
-| coisa no lugar errado, idioma do framework ignorado | [`/code:estrutura`](05-estrutura.md) |
+| ruído de comentário | [`/code:comentarios`](05-comentarios-e-duplicacao.md) |
+| a mesma decisão em dois lugares | [`/code:duplicacao`](05-comentarios-e-duplicacao.md) |
+| coisa no lugar errado, idioma do framework ignorado | [`/code:estrutura`](04-estrutura.md) |
+| símbolo que ninguém usa, export desnecessário | [`/code:morto`](06-morto.md) |
 
 ## O que muda quando existe contrato
 

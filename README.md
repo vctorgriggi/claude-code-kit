@@ -27,6 +27,7 @@ mais afiada — a dependência é graciosa, nunca dura.
 | [**`/code:comentarios`**](commands/code/comentarios.md) | comentário que repete o código | o teste da deleção |
 | [**`/code:duplicacao`**](commands/code/duplicacao.md) | a mesma **decisão** escrita em dois lugares | "muda junto?" |
 | [**`/code:estrutura`**](commands/code/estrutura.md) | coisa no lugar errado; idioma do framework ignorado | `CLAUDE.md` + docs oficiais |
+| [**`/code:morto`**](commands/code/morto.md) | símbolo sem consumidor, export desnecessário, branch inalcançável | cinco buscas, não uma |
 
 **Todo comando reporta antes de aplicar.** Você vê a lista e escolhe o que
 entra — e cada escrita ainda passa pelo prompt de permissão do harness. Dois
@@ -65,7 +66,7 @@ E um comando devolve o que só julgamento pega, ordenado por consequência:
           → frágil; vira gap conhecido se ficar
 ```
 
-## As 12 regras mecânicas
+## As 13 regras mecânicas
 
 `codecheck --explain <id>` imprime o porquê e os exemplos de cada uma.
 
@@ -76,6 +77,7 @@ E um comando devolve o que só julgamento pega, ordenado por consequência:
 | **Contrato** `C1` `C2` | import cruzando fronteira declarada; token proibido no "Nunca fazer" | `C1` violação, `C2` aviso |
 | **Duplicação** `D1` | literal repetido 3× ou mais (teste não conta) | aviso |
 | **Volume** `V1` `V2` | arquivo e função acima do limite brando | aviso |
+| **Morto** `M1` | símbolo exportado que nenhum outro arquivo menciona | aviso |
 | **Supressão** `S1` | silenciar uma regra exige o motivo na linha | violação |
 
 Os avisos viram violação com `--strict`. `V1` e `V2` nunca: volume é sintoma,

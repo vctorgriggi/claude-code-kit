@@ -53,6 +53,13 @@ roda — o kit não inventa fronteira que ninguém declarou.
 **Duplicação** — a terceira ocorrência é onde o custo vira real: alguém muda
 duas e esquece a terceira. Duas é coincidência.
 
+**Morto** — código que ninguém usa cobra atenção em toda leitura e mantém vivo
+tudo o que ele arrasta. É a única família cujo resultado é **apagar**, e por
+isso a postura se inverte: todo símbolo é vivo até que se prove o contrário.
+Sempre aviso — acesso dinâmico, reflexão, API pública e entry point de
+framework fazem um símbolo parecer morto sem estar, e busca textual não vê
+nenhum deles. O mecânico levanta o candidato; a prova é de quem lê.
+
 **Volume** — arquivo e função acima do limite brando. Sempre **aviso**: volume é
 sintoma, não doença, e há função longa legítima.
 
@@ -106,6 +113,7 @@ e os exemplos de cada um.
 | `D1` | Duplicação | aviso *(promovível)* | literal repetido três vezes ou mais |
 | `C1` | Contrato | violação | import não cruza a fronteira declarada no CLAUDE.md |
 | `C2` | Contrato | aviso *(promovível)* | proibição do "Nunca fazer" que virou grep |
+| `M1` | Morto | aviso *(promovível)* | símbolo exportado que nenhum outro arquivo menciona |
 | `S1` | Supressão | violação | supressão declara o motivo |
 | `V1` | Volume | aviso *(promovível)* | arquivo acima do limite brando |
 | `V2` | Volume | aviso *(promovível)* | função acima do limite brando |

@@ -1,4 +1,4 @@
-# Exemplo 5: /code:estrutura — onde a coisa mora, e como se faz aqui
+# Exemplo 4: /code:estrutura — onde a coisa mora, e como se faz aqui
 
 Duas perguntas distintas, e confundi-las é o erro comum: **onde** (o projeto
 declara) e **como neste framework** (a documentação oficial declara).

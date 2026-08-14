@@ -85,6 +85,19 @@
 | 37  | Recomendação vinda da doc oficial                             | registra `(fonte: docs oficiais <framework> <versão>, <mês/ano>)`                 |
 | 38  | Sem rede para consultar a doc                                 | diz que a camada não rodou; nunca conclui "está certo"                            |
 
+## `/code:morto`
+
+| #   | Entrada                                                      | Resultado travado                                                                          |
+| --- | -------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| 44  | Candidato levantado pelo `M1`                                  | tratado como **candidato**, nunca veredito — o `M1` é busca textual                        |
+| 45  | Qualquer proposta de remoção                                   | traz **qual busca provou o quê**; "nenhuma referência" sem dizer onde procurou não é prova |
+| 46  | Símbolo citado apenas dentro de string, JSON ou CI             | *manter* — acesso dinâmico conta como vivo                                                 |
+| 47  | Símbolo usado só dentro do próprio arquivo                     | *desexportar*, nunca apagar                                                                |
+| 48  | Símbolo referenciado só por teste                              | *avaliar*; e o teste **nunca** é apagado para o símbolo virar morto                        |
+| 49  | Export em `main`/`exports`/`bin`, ou entry point de framework  | vivo por definição; remoção só com confirmação explícita                                   |
+| 50  | Evidência que não fecha (migração pela metade)                 | *confirmar* — devolve a pergunta em vez de escolher um lado                                |
+| 51  | Remoção aprovada                                               | refaz a busca a cada nível da cascata; roda a suíte completa e o build                     |
+
 ## Gates
 
 | #   | Entrada                                     | Resultado travado                                                                        |
