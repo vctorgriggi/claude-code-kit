@@ -1,0 +1,25 @@
+name: ci
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      # Glob, não a lista: um arquivo de teste novo entra sozinho, e o
+      # test/completude.test.mjs cobra justamente isso.
+      - name: suítes (codecheck, mutação, completude, coerência)
+        run: node --test test/*.test.mjs
+      - name: a tabela do §6 da GRAMATICA em dia com o catálogo
+        run: node scripts/gerar-gramatica.mjs --check
+      - name: testes do projeto de referência
+        run: node --test
+        working-directory: examples/fixtures/limpo
+      - name: codecheck estrito contra o projeto de referência (zero achados)
+        run: node bin/codecheck.mjs --strict examples/fixtures/limpo

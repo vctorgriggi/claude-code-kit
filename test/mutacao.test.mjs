@@ -76,6 +76,10 @@ const CASOS = [
         "export const c = () => aguardar(7500);",
       ].join("\n"))],
 
+  ["S1", (d) =>
+    gravar(d, "src/dominio/silencio.js",
+      "// codecheck: ignore J2\n// TODO sem rastro\nexport const x = 1;\n")],
+
   ["V1", (d) =>
     gravar(d, "src/borda/enorme.js",
       Array.from({ length: 420 }, (_, i) => `export const v${i} = ${i};`).join("\n"))],

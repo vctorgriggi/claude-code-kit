@@ -1,0 +1,40 @@
+name: codecheck
+description: >-
+  Verifica os invariantes mecânicos de zelo do claude-code-kit no código do
+  repositório, e o contrato declarado no CLAUDE.md quando ele existe.
+
+inputs:
+  dir:
+    description: >-
+      Diretório a verificar. Aceita vários separados por espaço.
+    required: false
+    default: "."
+  strict:
+    description: >-
+      "true" promove as famílias calibráveis (D — duplicação, C2 — proibição,
+      V — volume) de aviso para violação.
+    required: false
+    default: "false"
+  codecheck:
+    description: >-
+      Caminho do codecheck.mjs dentro do repositório. Copie bin/codecheck.mjs
+      do claude-code-kit para cá e aponte.
+    required: false
+    default: ".github/codecheck.mjs"
+
+runs:
+  using: composite
+  steps:
+    - name: verificar o zelo do código
+      shell: bash
+      run: |
+        set -euo pipefail
+        if [ ! -f "${{ inputs.codecheck }}" ]; then
+          echo "::error::codecheck não encontrado em ${{ inputs.codecheck }}."
+          echo "Copie bin/codecheck.mjs do claude-code-kit para esse caminho."
+          exit 2
+        fi
+        args=()
+        [ "${{ inputs.strict }}" = "true" ] && args+=(--strict)
+        # shellcheck disable=SC2086 — `dir` pode trazer vários caminhos
+        node "${{ inputs.codecheck }}" "${args[@]}" ${{ inputs.dir }}

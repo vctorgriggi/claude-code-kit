@@ -152,6 +152,26 @@ test("C1: import cruzando a fronteira declarada no CLAUDE.md", async () => {
   assert.match(r.violacoes[0].msg, /`dominio\/` importa de `borda\/`/);
 });
 
+test("no projeto sem contrato, o kit é útil e a família C fica muda", async () => {
+  // O fixture `sujo` é o que os comandos encontram no mundo real: sem
+  // CLAUDE.md, com dívida que ninguém registrou. Prova as duas metades da
+  // dependência graciosa — o que funciona sem contrato, e o que não inventa.
+  const SUJO = fileURLToPath(
+    new URL("../examples/fixtures/sujo", import.meta.url),
+  );
+  const r = await verificar(SUJO, { strict: true });
+  const familias = new Set([...r.violacoes, ...r.avisos].map((v) => v.familia));
+
+  assert.ok(
+    ["Justificativa", "Testes", "Duplicação"].every((f) => familias.has(f)),
+    `esperava J, T e D no projeto sujo; achei ${[...familias].join(", ")}`,
+  );
+  assert.ok(
+    !familias.has("Contrato"),
+    "sem CLAUDE.md a família Contrato não pode acusar nada",
+  );
+});
+
 test("C1 não roda sem CLAUDE.md — a dependência é graciosa", async () => {
   const dir = await copiaDoLimpo();
   await rm(path.join(dir, "CLAUDE.md"));

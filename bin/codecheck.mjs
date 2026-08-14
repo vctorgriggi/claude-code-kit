@@ -13,10 +13,10 @@
 // O catálogo REGRAS é a fonte legível-por-máquina: a tabela da gramática e o
 // --explain saem dele. Nenhum invariante existe só no texto ou só aqui.
 //
-// Duas famílias importam mais que as outras, porque nenhuma ferramenta genérica
-// as alcança: `C` lê a regra de ouro e o "Nunca fazer" do CLAUDE.md do projeto,
-// e `F` lê a fronteira de camadas declarada na Estrutura. O contrato é do
-// projeto; este verificador só o executa.
+// A família `C` é a que nenhuma ferramenta genérica alcança: ela lê o CLAUDE.md
+// do projeto — a fronteira entre camadas declarada na árvore da Estrutura (C1) e
+// as proibições nomeadas no "Nunca fazer" (C2). O contrato é do projeto; este
+// verificador só o executa. Sem CLAUDE.md, a família não roda.
 
 import { readFile, readdir, lstat } from "node:fs/promises";
 import { existsSync, realpathSync } from "node:fs";
@@ -75,6 +75,7 @@ export const REGRAS = [
     porque:
       "Catch vazio transforma falha em comportamento aleatório mais adiante, e apaga o rastro que apontaria a origem. Se ignorar é a decisão certa, ela precisa estar escrita.",
     ok: "try { cache.limpar(); } catch { /* cache é best-effort; falha aqui não afeta a resposta */ }",
+    // codecheck: ignore J3 — este é o exemplo "mal" do catálogo, não código
     ruim: "try { cache.limpar(); } catch (e) {}",
   },
   {
@@ -138,6 +139,16 @@ export const REGRAS = [
       "Cada proibição do CLAUDE.md nomeia um símbolo concreto na maioria dos casos — `var`, `any`, `float`, `process.exit`. Quando nomeia, dá para procurar. Aviso e não violação porque o texto é prosa: a correspondência é heurística e o julgamento final é de quem lê.",
     ok: 'CLAUDE.md proíbe `float` para dinheiro; o código só usa centavos inteiros',
     ruim: 'a mesma proibição, e `const preco = 19.90` no código',
+  },
+  {
+    id: "S1",
+    familia: "Supressão",
+    severidade: "violacao",
+    titulo: "supressão declara o motivo",
+    porque:
+      "Supressão sem motivo é a porta pela qual um verificador morre: alguém silencia o achado, ninguém sabe por quê, e a regra vira decoração. Com o motivo na linha, silenciar é uma decisão auditável como qualquer outra.",
+    ok: "// codecheck: ignore J1 — este é o regex que detecta o escape, não um escape",
+    ruim: "// codecheck: ignore J1",
   },
   {
     id: "V1",
@@ -306,6 +317,7 @@ export async function verificar(dirs, opcoes = {}) {
       const codigo = semStrings(l);
 
       // J1 — escape de tipo sem justificativa na linha
+      // codecheck: ignore J1 — este é o padrão que detecta o escape
       const escape = codigo.match(/@ts-ignore|@ts-nocheck|eslint-disable(?:-next)?-line|:\s*any\b|\bas any\b|# type:\s*ignore|# noqa/);
       if (escape) {
         const temPorque = /—|--\s|\bporque\b|#\d+|issue|bug|https?:\/\//i.test(l);
@@ -314,7 +326,8 @@ export async function verificar(dirs, opcoes = {}) {
         }
       }
 
-      // J2 — TODO/FIXME sem referência rastreável
+      // J2 — marcador de pendência sem referência rastreável
+      // codecheck: ignore J2 — este é o padrão que detecta os marcadores
       const todo = codigo.match(/\b(TODO|FIXME|HACK|XXX)\b/);
       if (todo) {
         const rastreavel = /\(#?\w+\)|#\d+|[A-Z]{2,}-\d+|https?:\/\//.test(l);
@@ -323,9 +336,10 @@ export async function verificar(dirs, opcoes = {}) {
         }
       }
 
-      // D1 — literais candidatos a constante. Teste não conta: cravar o valor
-      // esperado é o trabalho dele; asserção contra a constante seria tautologia.
-      if (!ehTeste(rel)) for (const m of l.matchAll(/(?<![\w.])(\d{3,})(?![\w.])/g)) {
+      // D1 — literais candidatos a constante. Duas exclusões: arquivo de teste
+      // (cravar o valor esperado é o trabalho dele) e número dentro de string
+      // (texto de mensagem ou exemplo não é constante mágica no código).
+      if (!ehTeste(rel)) for (const m of codigo.matchAll(/(?<![\w.])(\d{3,})(?![\w.])/g)) {
         const v = m[1];
         if (/^[01]+$/.test(v) || Number(v) === 100 || Number(v) === 1000) continue;
         if (!literais.has(v)) literais.set(v, []);
@@ -430,6 +444,33 @@ export async function verificar(dirs, opcoes = {}) {
       `o literal ${valor} aparece ${onde.length}× (${lugares}); nomeie a constante`,
     );
   }
+
+  // --- supressão justificada -------------------------------------------
+  // `// codecheck: ignore <ID> — motivo` silencia um id na própria linha ou na
+  // seguinte. Escopo de linha, não de arquivo: código é denso, e silenciar um
+  // arquivo inteiro esconde o achado seguinte que ninguém pediu para ignorar.
+  const suprimido = new Set();
+  for (const abs of arquivos) {
+    const rel = path.relative(raiz, abs);
+    (await readFile(abs, "utf8")).split("\n").forEach((l, i) => {
+      const m = l.match(/codecheck:\s*ignore\s+([A-Z]\d+)\s*(.*?)\s*(?:\*\/|$)/);
+      if (!m) return;
+      const motivo = m[2].replace(/^[—–-]+\s*/, "").trim();
+      if (!REGRA[m[1]]) {
+        achar(rel, i + 1, "S1", `supressão de "${m[1]}", que não existe no catálogo`);
+      } else if (!motivo) {
+        achar(rel, i + 1, "S1", `supressão de ${m[1]} sem motivo na linha`);
+      } else {
+        suprimido.add(`${rel}:${i + 1}:${m[1]}`);
+        suprimido.add(`${rel}:${i + 2}:${m[1]}`);
+      }
+    });
+  }
+  const efetivos = achados.filter(
+    (a) => !suprimido.has(`${a.arquivo}:${a.linha}:${a.id}`),
+  );
+  achados.length = 0;
+  achados.push(...efetivos);
 
   achados.sort(
     (a, b) => a.arquivo.localeCompare(b.arquivo) || a.linha - b.linha,
