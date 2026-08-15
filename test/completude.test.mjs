@@ -11,6 +11,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readdir, readFile } from "node:fs/promises";
+import { execFileSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -54,15 +55,61 @@ test("toda regra do catálogo aparece na tabela gerada da gramática", async () 
   }
 });
 
-test("toda família do catálogo é explicada no texto normativo", async () => {
+test("toda família do catálogo é explicada em prosa no §3, na ordem do catálogo", async () => {
+  // Só o §3 conta. Procurar no arquivo inteiro aprovaria a família pela tabela
+  // gerada do §6, que sempre cita o nome — guarda que não pode falhar não é
+  // guarda. Foi assim que "Supressão" ficou sem uma linha de explicação.
   const normativo = await ler("grammar/GRAMATICA.md");
-  const familias = [...new Set(REGRAS.map((r) => r.familia))];
-  const ausentes = familias.filter((f) => !normativo.includes(f));
+  const secao = normativo.match(/^## §3[^\n]*\n([\s\S]*?)^## §4/m);
+  assert.ok(secao, "a gramática não tem um §3 delimitado");
+
+  const explicadas = [...secao[1].matchAll(/^\*\*([^*]+)\*\* —/gm)].map((m) => m[1]);
+  const doCatalogo = [...new Set(REGRAS.map((r) => r.familia))];
+
+  const ausentes = doCatalogo.filter((f) => !explicadas.includes(f));
   assert.deepEqual(
     ausentes,
     [],
-    `famílias sem explicação na gramática: ${ausentes.join(", ")}`,
+    `famílias sem parágrafo próprio no §3: ${ausentes.join(", ")}`,
   );
+
+  // A ordem também: catálogo, §3 e a tabela do README são a mesma sequência, e
+  // a do README é gerada do catálogo. Sobra o §3 para divergir à mão.
+  assert.deepEqual(
+    explicadas,
+    doCatalogo,
+    "a ordem das famílias no §3 diverge da ordem do catálogo",
+  );
+});
+
+test("a ordem das seções do README leva à instalação, não parte dela", async () => {
+  // Instalar é o pedido mais caro da página. Ele vem depois da prova (o que sai
+  // disso, o diferencial) e depois da pergunta que decide (isto serve para o
+  // meu projeto?) — nunca antes. Sem esta guarda a ordem volta a ser a de
+  // escrita, que foi como ela nasceu nos dois kits.
+  const md = await ler("README.md");
+  let dentro = false;
+  const secoes = [];
+  for (const l of md.split("\n")) {
+    if (l.trimStart().startsWith("```")) dentro = !dentro;
+    else if (!dentro && l.startsWith("## ")) secoes.push(l.slice(3).trim());
+  }
+
+  const pos = (t) => secoes.findIndex((s) => s === t);
+  const antes = (a, b) => {
+    assert.notEqual(pos(a), -1, `o README não tem a seção "${a}"`);
+    assert.notEqual(pos(b), -1, `o README não tem a seção "${b}"`);
+    assert.ok(pos(a) < pos(b), `"${a}" precisa vir antes de "${b}" no README`);
+  };
+
+  antes("Por quê", "As lâminas");
+  antes("As lâminas", "O que sai disso");
+  antes("O que sai disso", "O contrato, que é o diferencial");
+  antes("O contrato, que é o diferencial", "Em que projetos isso funciona");
+  antes("Em que projetos isso funciona", "Instalação");
+  antes("Instalação", "Verificação");
+  antes("Veja funcionando", "Onde a confiança para");
+  antes("Onde a confiança para", "Personalização");
 });
 
 test("a numeração das transcrições segue a ordem de consequência", async () => {
@@ -338,6 +385,71 @@ test("toda feature de CLI documentada existe e tem teste", async () => {
   }
 });
 
+test("o que o índice dos exemplos afirma sobre os fixtures é o que eles dão", async () => {
+  // O índice promete números concretos ("6 violações e 3 avisos, em 4
+  // famílias") porque número concreto é o que deixa o exemplo avaliável sem
+  // rodar nada. É também o que envelhece calado: a linha dizia "seis famílias"
+  // quando eram quatro, e nada quebrava.
+  const { verificar } = await import("../bin/codecheck.mjs");
+  const indice = await ler("examples/README.md");
+
+  const m = indice.match(/(\d+) violações e (\d+) avisos, em (\d+) famílias/);
+  assert.ok(m, "o índice não declara os números do fixture sujo");
+  const r = await verificar(path.join(RAIZ, "examples/fixtures/sujo"));
+  const familias = new Set([...r.violacoes, ...r.avisos].map((a) => a.familia));
+  assert.deepEqual(
+    [r.violacoes.length, r.avisos.length, familias.size],
+    [Number(m[1]), Number(m[2]), Number(m[3])],
+    "os números que o índice afirma sobre o fixture sujo não são os que ele dá",
+  );
+
+  assert.match(indice, /--strict examples\/fixtures\/limpo\s+# 0 achados/);
+  const limpo = await verificar(path.join(RAIZ, "examples/fixtures/limpo"), { strict: true });
+  assert.equal(
+    limpo.violacoes.length + limpo.avisos.length,
+    0,
+    "o índice promete zero achados no fixture limpo e ele tem achado",
+  );
+});
+
+test("o panorama documentado é a saída real, não uma lembrança dela", async () => {
+  // A guarda acima prova que a feature existe; esta prova que o exemplo dela
+  // ainda é verdade. O panorama roda sobre os fixtures de verdade, então dá
+  // para exigir igualdade byte a byte — é o único jeito de pegar o exemplo que
+  // estava certo quando foi escrito e envelheceu junto com o fixture.
+  const readme = await ler("README.md");
+  const bloco = [...readme.matchAll(/```[^\n]*\n([\s\S]*?)```/g)]
+    .map((m) => m[1])
+    .find((b) => b.split("\n").some((l) => l.startsWith("$ codecheck ~/")));
+  assert.ok(bloco, "o README não mostra o panorama entre projetos");
+
+  // Exit 1 é o esperado: o fixture sujo viola de propósito, e o execFileSync
+  // entrega o stdout no erro.
+  const argv = [
+    path.join(RAIZ, "bin/codecheck.mjs"),
+    ...["limpo", "sujo"].map((f) => path.join(RAIZ, "examples/fixtures", f)),
+  ];
+  let real;
+  try {
+    real = execFileSync("node", argv, { encoding: "utf8" });
+  } catch (e) {
+    real = e.stdout ?? "";
+  }
+
+  const limpar = (s) =>
+    s
+      .split("\n")
+      .filter((l) => l.trim() && !l.startsWith("$"))
+      .map((l) => l.trimEnd())
+      .join("\n");
+
+  assert.equal(
+    limpar(bloco),
+    limpar(real),
+    "o panorama do README diverge do que o codecheck emite hoje sobre os fixtures",
+  );
+});
+
 test("as contagens escritas à mão batem com a realidade", async () => {
   const readme = await ler("README.md");
   const declarado = readme.match(/(\d+) regras mecânicas/);
@@ -348,4 +460,33 @@ test("as contagens escritas à mão batem com a realidade", async () => {
       `o README diz ${declarado[1]} regras; o catálogo tem ${REGRAS.length}`,
     );
   }
+
+  const indice = await ler("examples/README.md");
+  const casos = (await ler("examples/regressao.md"))
+    .split("\n")
+    .filter((l) => /^\| *\d+ *\|/.test(l)).length;
+  const anunciado = indice.match(/(\d+) casos com resultado travado/);
+  assert.ok(anunciado, "o índice dos exemplos não anuncia o número de casos");
+  assert.equal(
+    Number(anunciado[1]),
+    casos,
+    `o índice diz ${anunciado[1]} casos; a tabela tem ${casos}`,
+  );
+});
+
+test("os casos de regressão são numerados 1..N na ordem do arquivo", async () => {
+  // A tabela é dividida em seções por comando, e caso novo entra na seção do
+  // comando dele — não no fim do arquivo. Sem esta guarda a numeração vira
+  // ordem de escrita: foi assim que a seção do `/code:morto` acabou com os
+  // números 44–51 posicionada antes da seção que tinha 39–43.
+  const numeros = (await ler("examples/regressao.md"))
+    .split("\n")
+    .filter((l) => /^\| *\d+ *\|/.test(l))
+    .map((l) => Number(l.match(/^\| *(\d+)/)[1]));
+
+  assert.deepEqual(
+    numeros,
+    numeros.map((_, i) => i + 1),
+    "numeração fora de ordem ou com buraco na tabela de regressão",
+  );
 });

@@ -93,6 +93,12 @@ const CASOS = [
       "export function longa() {\n" +
         Array.from({ length: 70 }, (_, i) => `  const v${i} = ${i};`).join("\n") +
         "\n  return 0;\n}\n")],
+
+  // L0 não se quebra escrevendo código ruim — quebra-se escrevendo código numa
+  // linguagem que as regras de forma JS/TS não alcançam. O arquivo abaixo é
+  // limpo; o que o L0 acusa é o fato de ninguém ter olhado para ele de verdade.
+  ["L0", (d) =>
+    gravar(d, "src/dominio/tabela.py", "TABELA = {'sul': 1200}\n")],
 ];
 
 test("todo caso de mutação faz a sua regra acusar", async () => {

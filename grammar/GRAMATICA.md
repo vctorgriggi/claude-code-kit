@@ -35,6 +35,19 @@ provado; o que veio de comando foi julgado, e julgamento se discute.
 
 ## §3 As famílias
 
+A ordem é a mesma em toda parte — no catálogo do `codecheck`, na tabela do §6 e
+no README — e é por **consequência**: o que nenhuma outra ferramenta pega, o que
+esconde bug, o que gera atrito, e por último as duas que falam da ferramenta em
+vez de falar do código. Ordem por letra do id seria alfabeto disfarçado de
+prioridade.
+
+**Contrato** — o que **este** projeto declarou no `CLAUDE.md`: a fronteira entre
+camadas e as proibições nomeadas. É a única família que nenhuma ferramenta
+genérica alcança, e a que mais depende do kit irmão. Vem primeiro porque import
+que cruza fronteira é a violação mais cara de desfazer: a dependência se espalha
+antes de alguém notar. Sem `CLAUDE.md`, ela não roda — o kit não inventa
+fronteira que ninguém declarou.
+
 **Justificativa** — a decisão carrega o porquê na própria linha. `any`,
 `@ts-ignore`, `eslint-disable`, `TODO`, `catch` que ignora: todos são escolhas
 legítimas em algum contexto, e todos apodrecem quando ninguém sabe qual era o
@@ -44,11 +57,6 @@ parece arriscado.
 **Testes** — teste que não prova nada é pior que teste ausente, porque a suíte
 verde afirma uma cobertura que não existe. Três formas mecânicas: sem asserção,
 asserção que não pode falhar, e `skip` sem motivo nem condição de volta.
-
-**Contrato** — o que **este** projeto declarou no `CLAUDE.md`: a fronteira entre
-camadas e as proibições nomeadas. É a única família que nenhuma ferramenta
-genérica alcança, e a que mais depende do kit irmão. Sem `CLAUDE.md`, ela não
-roda — o kit não inventa fronteira que ninguém declarou.
 
 **Duplicação** — a terceira ocorrência é onde o custo vira real: alguém muda
 duas e esquece a terceira. Duas é coincidência.
@@ -62,6 +70,20 @@ nenhum deles. O mecânico levanta o candidato; a prova é de quem lê.
 
 **Volume** — arquivo e função acima do limite brando. Sempre **aviso**: volume é
 sintoma, não doença, e há função longa legítima.
+
+**Supressão** — silenciar um achado exige o motivo na mesma linha. É a família
+que protege todas as outras: sem ela, o primeiro falso positivo real vira um
+`ignore` mudo, o segundo vira hábito, e o verificador morre de desuso sem que
+ninguém perceba. Com o motivo escrito, silenciar é uma decisão auditável como
+qualquer outra — e o kit usa isso em si mesmo, porque o regex que detecta um
+escape contém o escape.
+
+**Cobertura** — quais famílias não alcançaram as linguagens deste projeto. As
+regras textuais valem em qualquer arquivo; as que dependem da forma de JS/TS não
+acham nada num arquivo Python, e não achar nada é indistinguível de estar limpo.
+Nunca vira violação, nem com `--strict`: é falta da ferramenta, não defeito do
+código, e o projeto não teria como consertar. Existe para que o silêncio nunca
+seja confundido com aprovação — a mesma razão pela qual o kit irmão tem o `A0`.
 
 ## §4 Onde a confiança para
 
@@ -104,6 +126,8 @@ e os exemplos de cada um.
 
 | id | família | severidade | verifica |
 | -- | ------- | ---------- | -------- |
+| `C1` | Contrato | violação | import não cruza a fronteira declarada no CLAUDE.md |
+| `C2` | Contrato | aviso *(promovível)* | proibição do "Nunca fazer" que virou grep |
 | `J1` | Justificativa | violação | escape de tipo carrega o porquê na própria linha |
 | `J2` | Justificativa | violação | TODO e FIXME apontam para algo rastreável |
 | `J3` | Justificativa | violação | catch não engole o erro em silêncio |
@@ -111,11 +135,10 @@ e os exemplos de cada um.
 | `T2` | Testes | violação | asserção que não pode falhar |
 | `T3` | Testes | violação | teste pulado carrega o porquê e a condição de volta |
 | `D1` | Duplicação | aviso *(promovível)* | literal repetido três vezes ou mais |
-| `C1` | Contrato | violação | import não cruza a fronteira declarada no CLAUDE.md |
-| `C2` | Contrato | aviso *(promovível)* | proibição do "Nunca fazer" que virou grep |
 | `M1` | Morto | aviso *(promovível)* | símbolo exportado que nenhum outro arquivo menciona |
-| `S1` | Supressão | violação | supressão declara o motivo |
 | `V1` | Volume | aviso *(promovível)* | arquivo acima do limite brando |
 | `V2` | Volume | aviso *(promovível)* | função acima do limite brando |
+| `S1` | Supressão | violação | supressão declara o motivo |
+| `L0` | Cobertura | aviso | o verificador alcança as linguagens do projeto |
 
 <!-- REGRAS:fim -->

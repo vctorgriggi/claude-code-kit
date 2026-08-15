@@ -22,7 +22,7 @@ apaga, porque ela exige entender o código antes.
 | 04 | [04-estrutura.md](04-estrutura.md) | `/code:estrutura` | ALTO | três fontes de verdade com pesos diferentes; recomendação externa carregando data; empate sujo virando "coexistem", não violação |
 | 05 | [05-comentarios-e-duplicacao.md](05-comentarios-e-duplicacao.md) | `/code:comentarios` · `/code:duplicacao` | MÉDIO | JSDoc público sendo mantido; duplicação que é *manter* porque os dois lados evoluem separado |
 | 06 | [06-morto.md](06-morto.md) | `/code:morto` | apaga | cinco candidatos do `M1` virando um só *remover*; acesso dinâmico por JSON salvando o código; a cascata refeita a cada nível |
-| — | [regressao.md](regressao.md) | (mantenedor) | — | 51 casos com resultado travado, para detectar deriva depois de editar a gramática ou um comando |
+| — | [regressao.md](regressao.md) | (mantenedor) | — | 52 casos com resultado travado, para detectar deriva depois de editar a gramática ou um comando |
 
 Três leituras que valem mais que os arquivos isolados:
 
@@ -40,8 +40,8 @@ Três leituras que valem mais que os arquivos isolados:
 | [`fixtures/sujo/`](fixtures/sujo/) | Sem `CLAUDE.md`, com dívida que ninguém registrou. É o que os comandos encontram no mundo real, e a prova das duas metades da dependência graciosa: o que funciona sem contrato, e o que o kit se recusa a inventar sem ele. |
 
 ```bash
-node bin/codecheck.mjs --strict examples/fixtures/limpo   # zero achados
-node bin/codecheck.mjs examples/fixtures/sujo             # seis famílias acendendo
+node bin/codecheck.mjs --strict examples/fixtures/limpo   # 0 achados
+node bin/codecheck.mjs examples/fixtures/sujo             # 6 violações e 3 avisos, em 4 famílias
 node bin/codecheck.mjs --explain M1                       # o porquê de uma regra
 cd examples/fixtures/limpo && node --test                 # o código funciona
 ```

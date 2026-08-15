@@ -32,6 +32,16 @@ const FONTES = new Set([
   ".py", ".rb", ".go", ".rs", ".java", ".kt", ".swift", ".php",
 ]);
 
+// Nem toda regra alcança toda linguagem. Cinco são textuais e valem em
+// qualquer arquivo; seis foram escritas contra a forma de JS/TS (`it(…)`,
+// `export const`, `import … from`) e duas precisam de bloco delimitado por
+// chaves. O `L0` existe para dizer isso em voz alta em vez de deixar o silêncio
+// parecer aprovação.
+const JS_TS = new Set([".js", ".jsx", ".mjs", ".cjs", ".ts", ".tsx", ".mts", ".cts"]);
+const CHAVES = new Set([".go", ".rs", ".java", ".kt", ".swift", ".php"]);
+const SO_JS_TS = ["J1", "T1", "T2", "T3", "C1", "M1"];
+const SO_CHAVES = ["J3", "V2"];
+
 // Nunca varridos: não são código que alguém escreveu para este projeto.
 const IGNORADOS = new Set([
   ".git", "node_modules", "dist", "build", "out", "coverage", "vendor",
@@ -47,6 +57,27 @@ const MIN_REPETICOES = 3; // literal repetido a partir da terceira ocorrência
 const ehTeste = (rel) => /\.(test|spec)\.[jt]sx?$|(^|\/)tests?\//.test(rel);
 
 export const REGRAS = [
+  {
+    id: "C1",
+    familia: "Contrato",
+    severidade: "violacao",
+    titulo: "import não cruza a fronteira declarada no CLAUDE.md",
+    porque:
+      "A árvore comentada da Estrutura declara o que cada pasta é e o que ela nunca importa. Um linter genérico não sabe disso — só o contrato do projeto sabe. Import que cruza a fronteira é a violação mais cara de desfazer, porque a dependência se espalha antes de alguém notar.",
+    ok: "CLAUDE.md: `dominio/ # nunca importa de borda/`\nsrc/dominio/frete.js importa só de dominio/",
+    ruim: "o mesmo contrato, e `src/dominio/frete.js` com `import { db } from '../borda/db.js'`",
+  },
+  {
+    id: "C2",
+    familia: "Contrato",
+    severidade: "aviso",
+    promovivel: true,
+    titulo: 'proibição do "Nunca fazer" que virou grep',
+    porque:
+      "Cada proibição do CLAUDE.md nomeia um símbolo concreto na maioria dos casos — `var`, `any`, `float`, `process.exit`. Quando nomeia, dá para procurar. Aviso e não violação porque o texto é prosa: a correspondência é heurística e o julgamento final é de quem lê.",
+    ok: 'CLAUDE.md proíbe `float` para dinheiro; o código só usa centavos inteiros',
+    ruim: 'a mesma proibição, e `const preco = 19.90` no código',
+  },
   {
     id: "J1",
     familia: "Justificativa",
@@ -120,27 +151,6 @@ export const REGRAS = [
     ruim: "fetch(u, { timeout: 5000 }) … retry(5000) … esperar(5000)",
   },
   {
-    id: "C1",
-    familia: "Contrato",
-    severidade: "violacao",
-    titulo: "import não cruza a fronteira declarada no CLAUDE.md",
-    porque:
-      "A árvore comentada da Estrutura declara o que cada pasta é e o que ela nunca importa. Um linter genérico não sabe disso — só o contrato do projeto sabe. Import que cruza a fronteira é a violação mais cara de desfazer, porque a dependência se espalha antes de alguém notar.",
-    ok: "CLAUDE.md: `dominio/ # nunca importa de borda/`\nsrc/dominio/frete.js importa só de dominio/",
-    ruim: "o mesmo contrato, e `src/dominio/frete.js` com `import { db } from '../borda/db.js'`",
-  },
-  {
-    id: "C2",
-    familia: "Contrato",
-    severidade: "aviso",
-    promovivel: true,
-    titulo: 'proibição do "Nunca fazer" que virou grep',
-    porque:
-      "Cada proibição do CLAUDE.md nomeia um símbolo concreto na maioria dos casos — `var`, `any`, `float`, `process.exit`. Quando nomeia, dá para procurar. Aviso e não violação porque o texto é prosa: a correspondência é heurística e o julgamento final é de quem lê.",
-    ok: 'CLAUDE.md proíbe `float` para dinheiro; o código só usa centavos inteiros',
-    ruim: 'a mesma proibição, e `const preco = 19.90` no código',
-  },
-  {
     id: "M1",
     familia: "Morto",
     severidade: "aviso",
@@ -150,16 +160,6 @@ export const REGRAS = [
       "Export sem consumidor é peso: entra no autocomplete, entra na revisão, e mantém vivo todo o código que ele arrasta. Aviso e nunca violação — acesso dinâmico, reflexão, API pública e entry point de framework fazem um símbolo parecer morto sem estar. A regra também é sensível ao escopo: rodar numa subpasta esconde o consumidor que mora fora dela, então rode na raiz do projeto antes de acreditar no achado. Aqui sai o candidato; a prova de morte é de quem lê.",
     ok: "`cotar` é exportado, e `borda/http.js` o importa",
     ruim: "`calcularAntigo` é exportado, e nenhum outro arquivo do repositório o menciona",
-  },
-  {
-    id: "S1",
-    familia: "Supressão",
-    severidade: "violacao",
-    titulo: "supressão declara o motivo",
-    porque:
-      "Supressão sem motivo é a porta pela qual um verificador morre: alguém silencia o achado, ninguém sabe por quê, e a regra vira decoração. Com o motivo na linha, silenciar é uma decisão auditável como qualquer outra.",
-    ok: "// codecheck: ignore J1 — este é o regex que detecta o escape, não um escape",
-    ruim: "// codecheck: ignore J1",
   },
   {
     id: "V1",
@@ -182,6 +182,26 @@ export const REGRAS = [
       "Função longa esconde o caminho de erro no meio do caminho feliz. O limite é brando de propósito: há funções longas legítimas (máquinas de estado, parsers).",
     ok: `função com menos de ${LIMITE_FUNCAO} linhas`,
     ruim: `um handler de ${LIMITE_FUNCAO * 3} linhas com validação, regra e resposta juntas`,
+  },
+  {
+    id: "S1",
+    familia: "Supressão",
+    severidade: "violacao",
+    titulo: "supressão declara o motivo",
+    porque:
+      "Supressão sem motivo é a porta pela qual um verificador morre: alguém silencia o achado, ninguém sabe por quê, e a regra vira decoração. Com o motivo na linha, silenciar é uma decisão auditável como qualquer outra.",
+    ok: "// codecheck: ignore J1 — este é o regex que detecta o escape, não um escape",
+    ruim: "// codecheck: ignore J1",
+  },
+  {
+    id: "L0",
+    familia: "Cobertura",
+    severidade: "aviso",
+    titulo: "o verificador alcança as linguagens do projeto",
+    porque:
+      "O codecheck varre dezesseis extensões, mas só cinco regras são textuais o bastante para valer em todas. As outras foram escritas contra a forma de JS/TS, e num arquivo Python elas não acham nada — o que é indistinguível de estar limpo. Verde que significa duas coisas diferentes é pior que cobertura ausente, porque ninguém desconfia dele. Nunca vira violação: é falta da ferramenta, não defeito do código, e o projeto não teria como consertar.",
+    ok: "Projeto TypeScript: as treze regras rodam, e resumo limpo quer dizer limpo.",
+    ruim: "Projeto Python: `except: pass` e teste sem asserção passavam batido, e nada dizia que aquelas regras não tinham rodado.",
   },
 ];
 
@@ -369,6 +389,24 @@ export async function verificar(dirs, opcoes = {}) {
   const arquivos = await fontes(raiz);
   if (!arquivos.length) {
     throw new Error(`nenhum arquivo de código em ${raiz}`);
+  }
+
+  // L0 — o que não foi olhado, antes de qualquer achado: sem isto o leitor não
+  // tem como saber se o silêncio é aprovação ou ausência de regra.
+  const naoJs = new Map(); // extensão → primeiro arquivo com ela
+  for (const abs of arquivos) {
+    const ext = path.extname(abs);
+    if (!JS_TS.has(ext) && !naoJs.has(ext)) naoJs.set(ext, abs);
+  }
+  const ordemCatalogo = (a, b) => REGRAS.findIndex((r) => r.id === a) - REGRAS.findIndex((r) => r.id === b);
+  for (const [ext, abs] of [...naoJs].sort((a, b) => a[0].localeCompare(b[0]))) {
+    const fora = (CHAVES.has(ext) ? SO_JS_TS : [...SO_JS_TS, ...SO_CHAVES]).sort(ordemCatalogo);
+    achar(
+      path.relative(raiz, abs),
+      1,
+      "L0",
+      `arquivos ${ext}: ${fora.join(", ")} não rodam aqui — são regras de forma JS/TS`,
+    );
   }
 
   const literais = new Map(); // valor → [{arquivo, linha}]
@@ -698,8 +736,18 @@ async function main() {
         ? `ok — ${l.avisos.length} aviso(s)`
         : "ok";
     console.log(`${nome}  ${estado}`);
-    for (const a of [...l.violacoes, ...l.avisos].slice(0, 3)) {
+    // O panorama mostra três por projeto e **diz** que cortou: lista truncada
+    // em silêncio se lê como lista completa, e aí o resumo passa a mentir.
+    const todos = [...l.violacoes, ...l.avisos];
+    for (const a of todos.slice(0, 3)) {
       console.log(`${" ".repeat(larg)}    ${a.arquivo}:${a.linha} [${a.id}] ${a.msg}`);
+    }
+    if (todos.length > 3) {
+      console.log(
+        // "achado(s)", não "violação(ões)": a lista mistura as duas, e repetir
+        // o substantivo do cabeçalho faria o leitor somar dois universos.
+        `${" ".repeat(larg)}    … mais ${todos.length - 3} achado(s); rode no diretório para ver todos`,
+      );
     }
   }
   console.log(`\nresumo: ${comViolacao} de ${linhas.length} projeto(s) com violação`);

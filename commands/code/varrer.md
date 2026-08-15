@@ -31,6 +31,13 @@ Rode `node ~/.claude/bin/codecheck.mjs --json .` e use a saída como base. Não
 reimplemente as checagens dele nem parafraseie as mensagens; `--explain <id>`
 dá o porquê quando precisar explicar um achado.
 
+**Havendo achado `L0`, ele abre o relatório, antes de qualquer outro.** Não é
+defeito do código: diz que as regras de forma JS/TS não alcançaram parte dos
+arquivos. Retrato que omite isso afirma uma cobertura que não existe — quem lê
+precisa saber quais famílias ficaram de fora antes de tomar o resto como
+completo. Nesses arquivos só a camada de julgamento rodou de verdade, então
+amostre mais deles no passo 2.
+
 Sem o script, diga isso em uma linha e siga só com a camada de julgamento,
 avisando que a cobertura está reduzida.
 
