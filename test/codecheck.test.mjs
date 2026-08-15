@@ -328,6 +328,35 @@ test("V1 e V2 são avisos: volume é sintoma, não doença", async () => {
   assert.deepEqual(semM1(avisos(r)).sort(), ["V1", "V2"]);
 });
 
+// --- L0: cobertura é gate, não só mensagem ---------------------------------
+
+test("as regras de forma não rodam fora de JS/TS — o L0 diz, o gate cumpre", async () => {
+  // Regressão: o gate não existia e o L0 era só mensagem — J1 rodava em .swift
+  // e acusava o `any` de existencial, que o Swift obriga em tipo de protocolo,
+  // como escape sem justificativa: centenas de falsos positivos num
+  // repositório real, com o L0 dizendo o contrário na mesma saída.
+  const dir = await projeto({
+    "src/a.swift": [
+      "import AppKit",
+      "let fonte: any NowPlayingSource = Fonte()",
+      "func aplicar() {",
+      // codecheck: ignore J3 — o catch vazio em Swift é o input que prova que J3 segue rodando lá
+      "  do { try x() } catch {}",
+      "}",
+    ].join("\n"),
+    "src/b.py": "valor = calcular()  # type: ignore",
+  });
+  const r = await verificar(dir);
+  assert.deepEqual(ids(r).filter((i) => i === "J1"), [], "J1 acusou fora de JS/TS");
+  assert.deepEqual(ids(r).filter((i) => i === "J3"), ["J3"], "J3 é regra de chaves e alcança o catch do Swift");
+  const l0 = r.avisos.filter((v) => v.id === "L0");
+  assert.equal(l0.length, 2, "uma linha de L0 por extensão fora de JS/TS");
+  assert.ok(
+    l0.every((v) => v.msg.includes("J1")),
+    "o L0 segue nomeando J1 entre as que não rodam",
+  );
+});
+
 // --- catálogo e CLI --------------------------------------------------------
 
 const FONTE = await readFile(new URL("../bin/codecheck.mjs", import.meta.url), "utf8");

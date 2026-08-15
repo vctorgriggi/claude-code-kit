@@ -35,8 +35,10 @@ const FONTES = new Set([
 // Nem toda regra alcança toda linguagem. Cinco são textuais e valem em
 // qualquer arquivo; seis foram escritas contra a forma de JS/TS (`it(…)`,
 // `export const`, `import … from`) e duas precisam de bloco delimitado por
-// chaves. O `L0` existe para dizer isso em voz alta em vez de deixar o silêncio
-// parecer aprovação.
+// chaves. As listas abaixo fazem as duas coisas: desligam a checagem fora da
+// sua forma (`roda`, no laço de verificação) e compõem a mensagem do `L0`, que
+// diz em voz alta o que não foi olhado em vez de deixar o silêncio parecer
+// aprovação — um texto só para o gate e para o aviso, sem como divergirem.
 const JS_TS = new Set([".js", ".jsx", ".mjs", ".cjs", ".ts", ".tsx", ".mts", ".cts"]);
 const CHAVES = new Set([".go", ".rs", ".java", ".kt", ".swift", ".php"]);
 const SO_JS_TS = ["J1", "T1", "T2", "T3", "C1", "M1"];
@@ -341,6 +343,10 @@ async function morto(raiz, arquivos, achar) {
 
   for (const abs of arquivos) {
     const rel = path.relative(raiz, abs);
+    // Fora de JS/TS o M1 nem procura: `export` é forma JS/TS (SO_JS_TS), e o
+    // L0 já disse isso ao leitor. O índice de tokens acima fica com todos os
+    // arquivos de propósito — menção em qualquer linguagem conta como vivo.
+    if (!JS_TS.has(path.extname(abs))) continue;
     // Entry point, API pública do manifest e teste ficam de fora: exportar sem
     // consumidor interno é o trabalho deles.
     if (ENTRY_POINT.test(rel) || publicos.has(rel) || ehTeste(rel)) continue;
@@ -445,8 +451,19 @@ export async function verificar(dirs, opcoes = {}) {
     const texto = await readFile(abs, "utf8");
     const linhas = texto.split("\n");
 
+    // O gate lê as MESMAS listas que compõem a mensagem do L0. Sem ele a
+    // declaração era só mensagem: J1 rodava em .swift e acusava o `any` de
+    // existencial — sintaxe que a linguagem obriga em tipo de protocolo —
+    // como escape sem justificativa, às centenas num repositório real.
+    const ext = path.extname(abs);
+    const formaJsTs = JS_TS.has(ext);
+    const formaComChaves = formaJsTs || CHAVES.has(ext);
+    const roda = (id) =>
+      (SO_JS_TS.includes(id) ? formaJsTs : true) &&
+      (SO_CHAVES.includes(id) ? formaComChaves : true);
+
     // C1 — import cruzando fronteira declarada
-    for (const f of FRONTEIRAS) {
+    if (roda("C1")) for (const f of FRONTEIRAS) {
       if (!rel.split(path.sep).includes(f.de)) continue;
       for (const m of texto.matchAll(/(?:^|\n)\s*(?:import[^\n]*?from\s*|.*?\brequire\s*\()\s*['"]([^'"]+)['"]/g)) {
         const alvo = m[1];
@@ -480,9 +497,12 @@ export async function verificar(dirs, opcoes = {}) {
       const n = i + 1;
       const codigo = semStrings(l);
 
-      // J1 — escape de tipo sem justificativa na linha
+      // J1 — escape de tipo sem justificativa na linha. Só formas JS/TS: os
+      // marcadores de Python (`# type: ignore`, `# noqa`) saíram porque o gate
+      // não deixa J1 chegar a um .py — lá eles são assunto da lâmina de
+      // julgamento (/code:gambiarra), que lê qualquer linguagem.
       // codecheck: ignore J1 — este é o padrão que detecta o escape
-      const escape = codigo.match(/@ts-ignore|@ts-nocheck|eslint-disable(?:-next)?-line|:\s*any\b|\bas any\b|# type:\s*ignore|# noqa/);
+      const escape = roda("J1") && codigo.match(/@ts-ignore|@ts-nocheck|eslint-disable(?:-next)?-line|:\s*any\b|\bas any\b/);
       if (escape) {
         const temPorque = /—|--\s|\bporque\b|#\d+|issue|bug|https?:\/\//i.test(l);
         if (!temPorque) {
@@ -512,7 +532,7 @@ export async function verificar(dirs, opcoes = {}) {
     });
 
     // J3 — catch vazio ou que só engole
-    for (const m of texto.matchAll(/catch\s*(?:\([^)]*\))?\s*\{([^{}]*)\}/g)) {
+    if (roda("J3")) for (const m of texto.matchAll(/catch\s*(?:\([^)]*\))?\s*\{([^{}]*)\}/g)) {
       const corpo = m[1];
       const vazio = corpo.trim() === "";
       const soComentario = /^\s*(?:\/\/[^\n]*|\/\*[\s\S]*?\*\/)\s*$/.test(corpo);
@@ -528,8 +548,8 @@ export async function verificar(dirs, opcoes = {}) {
       }
     }
 
-    // --- família T: só em arquivo de teste ---
-    if (ehTeste(rel)) {
+    // --- família T: só em arquivo de teste, e só na forma que ela lê ---
+    if (roda("T1") && ehTeste(rel)) {
       const AFIRMA = /\b(assert|expect|should|t\.(ok|is|deepEqual)|assertEqual)\b/;
 
       // T1 — corpo de teste sem nenhuma asserção
@@ -571,31 +591,33 @@ export async function verificar(dirs, opcoes = {}) {
     }
 
     // V2 — funções longas (heurística por chave de bloco no nível do arquivo)
-    let inicio = null;
-    let profundidade = 0;
-    linhas.forEach((l, i) => {
-      const abre = (l.match(/\{/g) || []).length;
-      const fecha = (l.match(/\}/g) || []).length;
-      if (
-        inicio === null &&
-        /\b(function|=>|def |func |fn )\b/.test(semStrings(l)) &&
-        abre > fecha
-      ) {
-        inicio = i;
-        profundidade = abre - fecha;
-        return;
-      }
-      if (inicio !== null) {
-        profundidade += abre - fecha;
-        if (profundidade <= 0) {
-          const tamanho = i - inicio + 1;
-          if (tamanho > LIMITE_FUNCAO) {
-            achar(rel, inicio + 1, "V2", `função de ${tamanho} linhas (limite brando: ${LIMITE_FUNCAO})`);
-          }
-          inicio = null;
+    if (roda("V2")) {
+      let inicio = null;
+      let profundidade = 0;
+      linhas.forEach((l, i) => {
+        const abre = (l.match(/\{/g) || []).length;
+        const fecha = (l.match(/\}/g) || []).length;
+        if (
+          inicio === null &&
+          /\b(function|=>|def |func |fn )\b/.test(semStrings(l)) &&
+          abre > fecha
+        ) {
+          inicio = i;
+          profundidade = abre - fecha;
+          return;
         }
-      }
-    });
+        if (inicio !== null) {
+          profundidade += abre - fecha;
+          if (profundidade <= 0) {
+            const tamanho = i - inicio + 1;
+            if (tamanho > LIMITE_FUNCAO) {
+              achar(rel, inicio + 1, "V2", `função de ${tamanho} linhas (limite brando: ${LIMITE_FUNCAO})`);
+            }
+            inicio = null;
+          }
+        }
+      });
+    }
   }
 
   for (const [valor, onde] of literais) {
