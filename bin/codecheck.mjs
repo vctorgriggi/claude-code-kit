@@ -55,8 +55,15 @@ const LIMITE_FUNCAO = 60; // linhas
 const MIN_REPETICOES = 3; // literal repetido a partir da terceira ocorrência
 
 // Um único lugar decide o que é arquivo de teste: a família T só roda neles, e
-// o D1 os ignora ao contar literais.
-const ehTeste = (rel) => /\.(test|spec)\.[jt]sx?$|(^|\/)tests?\//.test(rel);
+// o D1 os ignora ao contar literais — cravar o valor esperado é o trabalho do
+// teste em QUALQUER linguagem, então as formas cobrem as convenções das
+// dezesseis extensões varridas, não só a de JS: pastas test(s)/ e spec/, pasta
+// *Tests/ e arquivo *Test(s) (Swift/Java/Kotlin: CremaTests/, FooTests.swift),
+// sufixo _test/_spec no nome (Go, pytest, RSpec) e prefixo test_ (pytest).
+// Sem isso, D1 contava os testes de um projeto Swift como código e empurrava
+// dezenas de literais cravados de propósito para cima do limiar.
+const ehTeste = (rel) =>
+  /\.(test|spec)\.[jt]sx?$|(^|\/)(tests?|spec)\/|(^|\/)[^/]*Tests\/|Tests?\.(swift|java|kt)$|_(test|spec)\.\w+$|(^|\/)test_[^/]*\.py$/.test(rel);
 
 export const REGRAS = [
   {
@@ -504,7 +511,7 @@ export async function verificar(dirs, opcoes = {}) {
       // codecheck: ignore J1 — este é o padrão que detecta o escape
       const escape = roda("J1") && codigo.match(/@ts-ignore|@ts-nocheck|eslint-disable(?:-next)?-line|:\s*any\b|\bas any\b/);
       if (escape) {
-        const temPorque = /—|--\s|\bporque\b|#\d+|issue|bug|https?:\/\//i.test(l);
+        const temPorque = /—|--\s|\bporque\b|\bbecause\b|#\d+|issue|bug|https?:\/\//i.test(l);
         if (!temPorque) {
           achar(rel, n, "J1", `"${escape[0]}" sem justificativa na linha`);
         }
@@ -541,8 +548,11 @@ export async function verificar(dirs, opcoes = {}) {
         achar(rel, linha, "J3", "catch vazio: o erro some sem deixar rastro");
         // "ignora" não entra na lista: repetir que se está ignorando é o
         // problema, não a justificativa. O que vale é o motivo — travessão,
-        // "porque", ou um qualificador que explique a tolerância à falha.
-      } else if (soComentario && !/—|--\s|\bporque\b|best-effort|opcional|não bloqueia/i.test(corpo)) {
+        // "porque"/"because", ou um qualificador que explique a tolerância à
+        // falha. As duas línguas, porque a casa que escreve código em inglês
+        // justifica em inglês, e cobrar o marcador em português dela é acusar
+        // um porquê que está escrito.
+      } else if (soComentario && !/—|--\s|\bporque\b|\bbecause\b|best-effort|opcional|não bloqueia/i.test(corpo)) {
         const linha = texto.slice(0, m.index).split("\n").length;
         achar(rel, linha, "J3", "catch só com comentário que não diz por que ignorar");
       }
@@ -584,7 +594,7 @@ export async function verificar(dirs, opcoes = {}) {
       linhas.forEach((l, i) => {
         if (!/\b(?:it|test|describe)\.(?:skip|todo)\b|\bx(?:it|test|describe)\s*\(/.test(semStrings(l))) return;
         const contexto = `${linhas[i - 1] ?? ""}\n${l}`;
-        if (!/—|--\s|#\d+|[A-Z]{2,}-\d+|https?:\/\/|\bflaky\b|\bporque\b/i.test(contexto)) {
+        if (!/—|--\s|#\d+|[A-Z]{2,}-\d+|https?:\/\/|\bflaky\b|\bporque\b|\bbecause\b/i.test(contexto)) {
           achar(rel, i + 1, "T3", "teste pulado sem motivo nem condição de volta");
         }
       });

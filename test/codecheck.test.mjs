@@ -63,6 +63,7 @@ test("J1: escape de tipo sem porquê acusa; com porquê passa", async () => {
       "const b = cliente.chamar();",
       "const c: any = 1; // — vem de JSON.parse sem schema, validado abaixo",
       "const d: any = 2;",
+      "const e: any = 3; // because the SDK erases this type before v4",
     ].join("\n"),
   });
   const r = await verificar(dir);
@@ -94,6 +95,7 @@ test("J3: catch vazio e catch que só comenta sem dizer o porquê", async () => 
       "try { b(); } catch { /* ignora */ }",
       "try { c(); } catch { /* cache é best-effort — falha não afeta a resposta */ }",
       "try { d(); } catch (e) { registrar(e); }",
+      "try { e(); } catch { /* fine because the next read warms the cache */ }",
     ].join("\n"),
   });
   const r = await verificar(dir);
@@ -142,6 +144,8 @@ test("T3: skip sem motivo acusa; com motivo na linha anterior passa", async () =
       "test.skip('sem motivo', () => {});",
       "// flaky no CI enquanto o mock de rede não chega — #402",
       "test.skip('com motivo', () => {});",
+      "// skipped because the network mock is not ready yet",
+      "test.skip('with the reason in English', () => {});",
     ].join("\n"),
   });
   const r = await verificar(dir);
@@ -326,6 +330,23 @@ test("V1 e V2 são avisos: volume é sintoma, não doença", async () => {
   const r = await verificar(dir);
   assert.deepEqual(r.violacoes, []);
   assert.deepEqual(semM1(avisos(r)).sort(), ["V1", "V2"]);
+});
+
+test("arquivo de teste é reconhecido nas convenções fora do mundo JS", async () => {
+  // Regressão: `ehTeste` só lia .test.js e test/ — num projeto Swift os testes
+  // (CremaTests/, FooTests.swift) contavam como código, e o D1 empurrava para
+  // cima do limiar dezenas de literais que o teste crava de propósito.
+  const dir = await projeto({
+    "src/a.swift": "let ancora = 4242",
+    "CremaTests/FrameRuleTests.swift": "let a = 4242\nlet b = 4242\nlet c = 4242",
+    "pkg/tabela_test.go": "var x = 4242",
+  });
+  const r = await verificar(dir);
+  assert.deepEqual(
+    avisos(r).filter((i) => i === "D1"),
+    [],
+    "literal cravado em arquivo de teste contou para o limiar do D1",
+  );
 });
 
 // --- L0: cobertura é gate, não só mensagem ---------------------------------
