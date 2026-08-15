@@ -412,6 +412,67 @@ test("o que o índice dos exemplos afirma sobre os fixtures é o que eles dão",
   );
 });
 
+test("as regras que o README diz que nunca promovem são as que o catálogo não promove", async () => {
+  // O `promovivel: true` de V1 e V2 contradizia a gramática §3 ("sempre
+  // aviso"), o `porque` das próprias regras ("Aviso, nunca violação") e o
+  // README — e o `--strict` promovia as duas. Três textos concordavam, o código
+  // discordava, e nada acusava.
+  const readme = await ler("README.md");
+  const frase = readme.match(/\*\*Três nunca promovem\*\*[^.]*\./);
+  assert.ok(frase, "o README não declara quais regras nunca promovem");
+
+  const declaradas = [...frase[0].matchAll(/`([A-Z]\d)`/g)].map((m) => m[1]).sort();
+  const doCatalogo = REGRAS.filter((r) => r.severidade === "aviso" && !r.promovivel)
+    .map((r) => r.id)
+    .sort();
+
+  assert.deepEqual(
+    declaradas,
+    doCatalogo,
+    "o README e o catálogo discordam sobre quais avisos nunca viram violação",
+  );
+
+  // E a gramática precisa dizer o mesmo em prosa, para as três fontes fecharem.
+  const normativo = await ler("grammar/GRAMATICA.md");
+  for (const id of doCatalogo) {
+    const familia = REGRAS.find((r) => r.id === id).familia;
+    const paragrafo = normativo.match(
+      new RegExp(`^\\*\\*${familia}\\*\\* —[\\s\\S]*?(?=\\n\\n\\*\\*|\\n## )`, "m"),
+    );
+    assert.ok(paragrafo, `a gramática não tem parágrafo da família ${familia}`);
+    assert.match(
+      paragrafo[0],
+      /Sempre \*\*aviso\*\*|Sempre aviso|[Nn]unca vira violação/,
+      `${id} nunca promove no catálogo e a gramática não diz isso no parágrafo de ${familia}`,
+    );
+  }
+});
+
+test("o kit passa no próprio verificador", async () => {
+  // Verificador que não se verifica pede uma disciplina que ele mesmo não
+  // segue. O que sobra são avisos de volume, que nunca promovem — e o CI roda
+  // exatamente este comando.
+  const { verificar } = await import("../bin/codecheck.mjs");
+  const r = await verificar(RAIZ);
+  assert.deepEqual(
+    r.violacoes.map((v) => `${v.arquivo}:${v.linha} [${v.id}]`),
+    [],
+    "o kit viola a própria gramática — corrija, ou suprima com motivo na linha",
+  );
+});
+
+test("o README aponta para o kit irmão", async () => {
+  // A dependência graciosa só é graciosa se o leitor souber que o outro lado
+  // existe. A guarda espelha a do irmão, para que a relação nunca volte a ser
+  // anunciada em um sentido só.
+  const readme = await ler("README.md");
+  assert.match(
+    readme,
+    /\[claude-docs-kit\]\(https:\/\/github\.com\/[^)]+\)/,
+    "o README não leva ao kit que escreve o contrato que a família C cobra",
+  );
+});
+
 test("o panorama documentado é a saída real, não uma lembrança dela", async () => {
   // A guarda acima prova que a feature existe; esta prova que o exemplo dela
   // ainda é verdade. O panorama roda sobre os fixtures de verdade, então dá

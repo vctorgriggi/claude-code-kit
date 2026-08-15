@@ -137,15 +137,28 @@ falam da ferramenta em vez do código por último — e é a mesma no catálogo,
 | **Testes** | `T1` `T2` `T3` | teste que não afirma nada; … | violação |
 | **Duplicação** | `D1` | literal repetido três vezes ou mais | aviso *(promovível)* |
 | **Morto** | `M1` | símbolo exportado que nenhum outro arquivo menciona | aviso *(promovível)* |
-| **Volume** | `V1` `V2` | arquivo acima do limite brando; … | aviso *(promovível)* |
+| **Volume** | `V1` `V2` | arquivo acima do limite brando; … | aviso |
 | **Supressão** | `S1` | supressão declara o motivo | violação |
 | **Cobertura** | `L0` | o verificador alcança as linguagens do projeto | aviso |
 
 <!-- REGRAS:fim -->
 
-Os avisos viram violação com `--strict`, com duas exceções permanentes: `V1` e
-`V2`, porque volume é sintoma e não doença, e `L0`, porque cobertura que falta é
-defeito da ferramenta e o seu projeto não teria como consertar.
+Os avisos marcados *(promovível)* viram violação com `--strict`, ou com
+`{"strict": true}` num `.codecheck.json` na raiz do repositório-alvo — assim a
+decisão fica versionada junto do código, em vez de depender de todo mundo
+lembrar da flag. **Três nunca promovem**, em modo nenhum: `V1` e `V2`, porque
+volume é sintoma e não doença, e `L0`, porque cobertura que falta é defeito da
+ferramenta e o seu projeto não teria como consertar.
+
+O mesmo arquivo diz o que não é código seu — fixture, saída de gerador, código
+de terceiro versionado:
+
+```json
+{ "strict": true, "ignorar": ["examples/fixtures", "src/gerado"] }
+```
+
+É o que este repositório usa em si mesmo: o `codecheck` roda contra o próprio
+kit no CI, e o fixture sujo fica de fora porque estar sujo é o trabalho dele.
 
 Achado que não se sustenta no seu projeto pode ser silenciado **com motivo**:
 `// codecheck: ignore D1 — a versão é gerada no build`. Sem o motivo, a própria

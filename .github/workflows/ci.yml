@@ -16,10 +16,15 @@ jobs:
       # test/completude.test.mjs cobra justamente isso.
       - name: suítes (codecheck, mutação, completude, coerência)
         run: node --test test/*.test.mjs
-      - name: a tabela do §6 da GRAMATICA em dia com o catálogo
+      - name: as tabelas geradas (GRAMATICA §6 e README) em dia com o catálogo
         run: node scripts/gerar-gramatica.mjs --check
       - name: testes do projeto de referência
         run: node --test
         working-directory: examples/fixtures/limpo
       - name: codecheck estrito contra o projeto de referência (zero achados)
         run: node bin/codecheck.mjs --strict examples/fixtures/limpo
+      # O kit cobra de si o que cobra dos outros. O .codecheck.json da raiz liga
+      # o strict e tira examples/fixtures, cujo trabalho é estar sujo; o que
+      # sobra de autodetecção nos testes está suprimido com motivo na linha.
+      - name: codecheck contra o próprio kit (o verificador se verifica)
+        run: node bin/codecheck.mjs .

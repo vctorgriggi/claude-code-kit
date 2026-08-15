@@ -122,6 +122,14 @@ Vale para o relatório, não só para o código:
 Verificados por `bin/codecheck.mjs`. `codecheck --explain <id>` imprime o porquê
 e os exemplos de cada um.
 
+O que é **aviso *(promovível)*** vira violação com `--strict`, ou com
+`{"strict": true}` num `.codecheck.json` na raiz do repositório verificado —
+calibração é decisão do projeto, e decisão do projeto mora versionada nele, não
+na linha de comando de quem lembrou de digitar a flag. O mesmo arquivo aceita
+`ignorar`, para os caminhos que não são código do projeto — fixture, saída de
+gerador, dependência versionada. Excluir é declarar; suprimir achado a achado é
+justificar. Os dois deixam rastro, e nenhum dos dois é silencioso.
+
 <!-- REGRAS:início — tabela gerada por scripts/gerar-gramatica.mjs; não editar à mão -->
 
 | id | família | severidade | verifica |
@@ -136,8 +144,8 @@ e os exemplos de cada um.
 | `T3` | Testes | violação | teste pulado carrega o porquê e a condição de volta |
 | `D1` | Duplicação | aviso *(promovível)* | literal repetido três vezes ou mais |
 | `M1` | Morto | aviso *(promovível)* | símbolo exportado que nenhum outro arquivo menciona |
-| `V1` | Volume | aviso *(promovível)* | arquivo acima do limite brando |
-| `V2` | Volume | aviso *(promovível)* | função acima do limite brando |
+| `V1` | Volume | aviso | arquivo acima do limite brando |
+| `V2` | Volume | aviso | função acima do limite brando |
 | `S1` | Supressão | violação | supressão declara o motivo |
 | `L0` | Cobertura | aviso | o verificador alcança as linguagens do projeto |
 

@@ -67,6 +67,7 @@ test("J1: escape de tipo sem porquê acusa; com porquê passa", async () => {
   });
   const r = await verificar(dir);
   assert.deepEqual(ids(r), ["J1", "J1"]);
+  // codecheck: ignore J1 — o regex que confere a mensagem contém o escape que ele procura
   assert.match(r.violacoes[0].msg, /@ts-ignore/);
 });
 
@@ -87,7 +88,9 @@ test("J2: TODO sem rastro acusa; com issue, ticket ou URL passa", async () => {
 test("J3: catch vazio e catch que só comenta sem dizer o porquê", async () => {
   const dir = await projeto({
     "src/a.js": [
+      // codecheck: ignore J3 — este catch vazio é o input que prova a regra, não código do kit
       "try { a(); } catch (e) {}",
+      // codecheck: ignore J3 — idem: o catch que só comenta é o input, não um catch nosso
       "try { b(); } catch { /* ignora */ }",
       "try { c(); } catch { /* cache é best-effort — falha não afeta a resposta */ }",
       "try { d(); } catch (e) { registrar(e); }",
@@ -107,6 +110,7 @@ test("T1: teste sem asserção acusa; com asserção passa", async () => {
       "import assert from 'node:assert/strict';",
       "import { somar } from '../src/a.js';",
       "test('soma', () => { assert.equal(somar(1, 2), 3); });",
+      // codecheck: ignore T1 — o teste sem asserção é o input que prova a regra
       "test('roda e não prova', () => { somar(1, 2); });",
     ].join("\n"),
   });
@@ -115,12 +119,14 @@ test("T1: teste sem asserção acusa; com asserção passa", async () => {
   assert.match(r.violacoes[0].msg, /roda e não prova/);
 });
 
+// codecheck: ignore T2 — o corpo deste teste carrega a tautologia que a regra procura
 test("T2: asserção que não pode falhar", async () => {
   const dir = await projeto({
     "src/a.js": "export const a = 1;",
     "test/a.test.js": [
       "import { test } from 'node:test';",
       "import assert from 'node:assert/strict';",
+      // codecheck: ignore T2 — a asserção sempre-verdadeira é o input que prova a regra
       "test('placeholder', () => { assert.ok(true); });",
     ].join("\n"),
   });
@@ -449,4 +455,61 @@ test("o CLI roda por symlink sem sair 0 em silêncio", async () => {
   assert.equal(porLink.code, 1, "invocado por symlink, o CLI não verificou nada");
   assert.equal(porLink.out, direto.out);
   await rm(tmp, { recursive: true, force: true });
+});
+
+test('.codecheck.json com {"strict": true} promove como a flag; inválido é erro de uso', async () => {
+  // Calibração é decisão do projeto, e decisão do projeto mora versionada nele.
+  // Sem isto, "este repositório é estrito" depende de todo mundo lembrar da
+  // flag — inclusive o CI de quem clonou.
+  const codigo = {
+    "src/a.js": "export const t = 5000;\nexport const u = 5000;\nexport const v = 5000;\n",
+  };
+
+  const semConfig = await verificar(await projeto(codigo));
+  assert.deepEqual(semConfig.violacoes, [], "sem config, D1 é só aviso");
+  assert.ok(avisos(semConfig).includes("D1"));
+
+  const dir = await projeto(codigo);
+  await writeFile(path.join(dir, ".codecheck.json"), '{"strict": true}\n');
+  const comConfig = await verificar(dir);
+  assert.ok(
+    ids(comConfig).includes("D1"),
+    "o .codecheck.json não promoveu o aviso a violação",
+  );
+
+  // A flag explícita vence a config, nos dois sentidos.
+  const forcandoBrando = await verificar(dir, { strict: false });
+  assert.deepEqual(forcandoBrando.violacoes, [], "a opção explícita não venceu a config");
+
+  // JSON quebrado é erro duro: silenciá-lo faria o strict desligar sozinho.
+  const quebrado = await projeto(codigo);
+  await writeFile(path.join(quebrado, ".codecheck.json"), "{nao é json}\n");
+  await assert.rejects(() => verificar(quebrado), /\.codecheck\.json inválido/);
+});
+
+test('.codecheck.json com "ignorar" tira o caminho da varredura', async () => {
+  // Todo projeto real tem árvore que não é código dele: fixture que precisa
+  // estar quebrado, saída de gerador, dependência versionada. Sem isto, a
+  // única saída seria suprimir achado a achado num arquivo que ninguém
+  // escreveu para ser bom.
+  const arquivos = {
+    "src/bom.js": "export const bom = 1;\n",
+    "fixtures/ruim/src/a.js": "// TODO: sem rastro\nexport const a = 1;\n",
+  };
+
+  const semIgnorar = await verificar(await projeto(arquivos));
+  assert.ok(ids(semIgnorar).includes("J2"), "sem ignorar, o fixture acusa");
+
+  const dir = await projeto(arquivos);
+  await writeFile(path.join(dir, ".codecheck.json"), '{"ignorar": ["fixtures"]}\n');
+  const comIgnorar = await verificar(dir);
+  assert.deepEqual(
+    ids(comIgnorar),
+    [],
+    "o caminho ignorado ainda foi varrido",
+  );
+
+  // A opção explícita vence a config, como em `strict`.
+  const forcando = await verificar(dir, { ignorar: [] });
+  assert.ok(ids(forcando).includes("J2"), "a opção explícita não venceu a config");
 });

@@ -41,6 +41,7 @@ const CASOS = [
 
   ["J3", (d) =>
     editar(d, "src/borda/http.js", (s) =>
+      // codecheck: ignore J3 — a mutação precisa escrever um catch vazio para provar que J3 acusa
       s.replace("  } catch (e) {\n    return { status: 422, erro: e.message };\n  }", "  } catch (e) {}"))],
 
   ["T1", (d) =>

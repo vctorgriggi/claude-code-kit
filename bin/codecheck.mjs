@@ -165,7 +165,6 @@ export const REGRAS = [
     id: "V1",
     familia: "Volume",
     severidade: "aviso",
-    promovivel: true,
     titulo: "arquivo acima do limite brando",
     porque:
       "Arquivo grande demais não é erro, é sinal: quase sempre há duas responsabilidades ali. Aviso, nunca violação — o corte é julgamento.",
@@ -176,7 +175,6 @@ export const REGRAS = [
     id: "V2",
     familia: "Volume",
     severidade: "aviso",
-    promovivel: true,
     titulo: "função acima do limite brando",
     porque:
       "Função longa esconde o caminho de erro no meio do caminho feliz. O limite é brando de propósito: há funções longas legítimas (máquinas de estado, parsers).",
@@ -210,7 +208,7 @@ const PROMOVIVEIS = new Set(REGRAS.filter((r) => r.promovivel).map((r) => r.id))
 
 // --- varredura ---------------------------------------------------------
 
-async function fontes(dir, acc = [], raiz = dir) {
+async function fontes(dir, acc = [], raiz = dir, ignorar = []) {
   let entradas;
   try {
     entradas = await readdir(dir, { withFileTypes: true });
@@ -221,7 +219,12 @@ async function fontes(dir, acc = [], raiz = dir) {
     if (IGNORADOS.has(e.name) || e.name.startsWith(".")) continue;
     const p = path.join(dir, e.name);
     if (e.isSymbolicLink()) continue;
-    if (e.isDirectory()) await fontes(p, acc, raiz);
+    // Caminhos que o projeto declarou como não-código-seu: fixture de teste,
+    // saída de gerador, código de terceiro versionado. Prefixo do caminho
+    // relativo, para que `examples/fixtures` cubra a árvore inteira abaixo.
+    const rel = path.relative(raiz, p).split(path.sep).join("/");
+    if (ignorar.some((i) => rel === i || rel.startsWith(`${i}/`))) continue;
+    if (e.isDirectory()) await fontes(p, acc, raiz, ignorar);
     else if (FONTES.has(path.extname(e.name))) acc.push(p);
   }
   return acc;
@@ -375,7 +378,27 @@ async function morto(raiz, arquivos, achar) {
 }
 
 export async function verificar(dirs, opcoes = {}) {
-  const strict = opcoes.strict === true;
+  const raiz = Array.isArray(dirs) ? dirs[0] : dirs;
+
+  // O .codecheck.json do repositório-alvo: promoção das calibráveis e caminhos
+  // que não são código do projeto. A opção explícita vence a config em `strict`.
+  // JSON quebrado é erro duro — silenciá-lo faria o strict "desligar sozinho",
+  // que é a falha que ninguém percebe. Resolvido aqui e não no main() para que
+  // quem importa `verificar` veja o mesmo comportamento que quem roda o CLI.
+  let strict = opcoes.strict === true;
+  let ignorar = Array.isArray(opcoes.ignorar) ? opcoes.ignorar : [];
+  const cfg = path.join(raiz, ".codecheck.json");
+  if (existsSync(cfg)) {
+    let parsed;
+    try {
+      parsed = JSON.parse(await readFile(cfg, "utf8"));
+    } catch (e) {
+      throw new Error(`.codecheck.json inválido em ${raiz}: ${e.message}`);
+    }
+    if (opcoes.strict === undefined) strict = parsed.strict === true;
+    if (!opcoes.ignorar && Array.isArray(parsed.ignorar)) ignorar = parsed.ignorar;
+  }
+
   const achados = [];
   const achar = (arquivo, linha, id, msg) => {
     const r = REGRA[id];
@@ -385,8 +408,7 @@ export async function verificar(dirs, opcoes = {}) {
     achados.push({ arquivo, linha, id, familia: r.familia, severidade, msg });
   };
 
-  const raiz = Array.isArray(dirs) ? dirs[0] : dirs;
-  const arquivos = await fontes(raiz);
+  const arquivos = await fontes(raiz, [], raiz, ignorar);
   if (!arquivos.length) {
     throw new Error(`nenhum arquivo de código em ${raiz}`);
   }
