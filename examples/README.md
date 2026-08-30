@@ -19,11 +19,11 @@ apaga, porque ela exige entender o código antes.
 | 01 | [01-varrer.md](01-varrer.md) | `/code:varrer` | o retrato | ordenação por consequência; cada achado dizendo o que muda; o fecho apontando qual lâmina usar, e por quê |
 | 02 | [02-contrato.md](02-contrato.md) | `/code:contrato` | CRÍTICO | contrato contradito de forma consistente virando hipótese de documento velho, não correção automática; o kit recusando editar o `CLAUDE.md` |
 | 03 | [03-gambiarra-e-testes.md](03-gambiarra-e-testes.md) | `/code:gambiarra` · `/code:testes` | CRÍTICO | dívida deliberada não sendo achado; o teste vindo **antes** da correção que muda comportamento; "teste que falta" saindo de promessa declarada |
-| 04 | [04-seguranca.md](04-seguranca.md) | `/code:seguranca` | CRÍTICO | achados medidos por exposição; segredo commitado virando *rotacionar*, não Edit; o fecho declarando o que **não** foi coberto — "não achei" nunca vira "está seguro" |
+| 04 | [04-seguranca.md](04-seguranca.md) | `/code:seguranca` | CRÍTICO | superfície mapeada antes de varrer padrão; IDOR e rota sem autorização saindo da **ausência** de uma checagem; o fecho declarando o que **não** foi coberto — "não achei" nunca vira "está seguro" |
 | 05 | [05-estrutura.md](05-estrutura.md) | `/code:estrutura` | ALTO | três fontes de verdade com pesos diferentes; recomendação externa carregando data; empate sujo virando "coexistem", não violação |
 | 06 | [06-comentarios-e-duplicacao.md](06-comentarios-e-duplicacao.md) | `/code:comentarios` · `/code:duplicacao` | MÉDIO | JSDoc público sendo mantido; duplicação que é *manter* porque os dois lados evoluem separado |
 | 07 | [07-morto.md](07-morto.md) | `/code:morto` | apaga | cinco candidatos do `M1` virando um só *remover*; acesso dinâmico por JSON salvando o código; a cascata refeita a cada nível |
-| — | [regressao.md](regressao.md) | (mantenedor) | — | 58 casos com resultado travado, para detectar deriva depois de editar a gramática ou um comando |
+| — | [regressao.md](regressao.md) | (mantenedor) | — | 62 casos com resultado travado, para detectar deriva depois de editar a gramática ou um comando |
 
 Três leituras que valem mais que os arquivos isolados:
 

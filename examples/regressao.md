@@ -103,19 +103,23 @@
 
 | #   | Entrada                                                  | Resultado travado                                                                        |
 | --- | ---------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
-| 48  | Segredo versionado                                         | veredito *rotacionar*: revogar na origem vem antes de editar — apagar a linha não tira do histórico |
-| 49  | Qualquer segredo achado                                    | o **valor** nunca aparece no relatório, em log ou em commit; arquivo e linha bastam      |
-| 50  | Relatório, inclusive o vazio                               | fecha declarando o que **não** foi coberto; "não achei" nunca vira "está seguro"         |
-| 51  | Achado alcançável só por código interno ou teste           | exposição rebaixada **e dita** — nunca inflado para parecer grave                        |
-| 52  | Credencial de placeholder, fixture ou exemplo de doc       | não é achado                                                                             |
-| 53  | Contorno sem exposição a terceiro                          | encaminhado a `/code:gambiarra`; vulnerabilidade e gambiarra não se misturam no relatório |
+| 48  | Área com pontos de entrada (rota, handler, webhook)        | mapeia a superfície primeiro e, para cada um, pergunta quem alcança e o que faz sem provar permissão — não sai varrendo padrão |
+| 49  | Rota que muda estado ou lê dado alheio sem checar autorização | achado **CRÍTICO mesmo sem segredo nenhum** envolvido; a falha é a linha que **não** está lá |
+| 50  | `id` do recurso vindo do request usado sem conferir o dono | IDOR nomeado; exposição = qualquer usuário logado                                        |
+| 51  | Dado de fora chegando cru a um sink (query, shell, template) | achado de injeção; a pergunta é de onde veio o valor e quem saneou no caminho          |
+| 52  | Operação de valor (pagamento, IA, envio, geração cara)     | checa abuso: preço/quantia vindo do cliente, falta de idempotência, prompt injection, custo sem teto — o que só se acha lendo o que a app **faz** |
+| 53  | Antes de chamar um achado de crítico                       | segue o caminho de volta e confirma alcançabilidade; rota "sem auth" atrás de middleware global é falso positivo, não achado |
+| 54  | Segredo versionado                                         | veredito *rotacionar*: revogar na origem vem antes de editar — apagar a linha não tira do histórico |
+| 55  | Qualquer segredo achado                                    | o **valor** nunca aparece no relatório, em log ou em commit; arquivo e linha bastam      |
+| 56  | Relatório, inclusive o vazio                               | fecha declarando o que **não** foi coberto; "não achei" nunca vira "está seguro"         |
+| 57  | Contorno sem exposição a terceiro                          | encaminhado a `/code:gambiarra`; vulnerabilidade e gambiarra não se misturam no relatório |
 
 ## Gates
 
 | #   | Entrada                                     | Resultado travado                                                                        |
 | --- | --------------------------------------------- | -------------------------------------------------------------------------------------------- |
-| 54  | Qualquer comando que edita                    | reporta a lista **antes**; nada é aplicado sem o usuário escolher                        |
-| 55  | Escrita aprovada                              | passa também pelo prompt de permissão do harness (`Write` fora do `allowed-tools`)       |
-| 56  | Depois de aplicar                             | roda typecheck, lint e testes; conserta o que a mudança quebrou                          |
-| 57  | Hook de `PostToolUse` em arquivo limpo        | **silêncio** — sem isso vira ruído a cada save                                           |
-| 58  | Hook em arquivo que não é código, ou com o kit quebrado | silêncio; nunca falha a edição                                                 |
+| 58  | Qualquer comando que edita                    | reporta a lista **antes**; nada é aplicado sem o usuário escolher                        |
+| 59  | Escrita aprovada                              | passa também pelo prompt de permissão do harness (`Write` fora do `allowed-tools`)       |
+| 60  | Depois de aplicar                             | roda typecheck, lint e testes; conserta o que a mudança quebrou                          |
+| 61  | Hook de `PostToolUse` em arquivo limpo        | **silêncio** — sem isso vira ruído a cada save                                           |
+| 62  | Hook em arquivo que não é código, ou com o kit quebrado | silêncio; nunca falha a edição                                                 |

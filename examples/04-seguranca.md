@@ -1,59 +1,67 @@
-# Exemplo 4: /code:seguranca — a lâmina que nunca certifica
+# Exemplo 4: /code:seguranca — a superfície de ataque, não o grep de segredo
 
-O que um terceiro explora, medido por exposição — e o fecho que diz o que **não**
-foi olhado, porque aqui relatório limpo engana mais que em qualquer outra
-lâmina. Blockquotes em itálico são anotações.
+O que um atacante faz com a aplicação, medido por exposição: o comando mapeia os
+pontos de entrada e segue o dado de fora até o estrago. O achado mais caro é a
+checagem que **não** está lá. Blockquotes em itálico são anotações.
 
 ---
 
 **Usuário:** `/code:seguranca`
 
-**Agente:** [lê a gramática e o `CLAUDE.md`; roda o codecheck]
+**Agente:** [lê a gramática e o `CLAUDE.md`; roda o codecheck; mapeia as rotas
+pelo roteador de `borda/`]
 
-O contrato declara "toda entrada externa passa por `validar()` antes do
-domínio" — essa é a régua mais forte daqui. Quatro achados, por exposição:
+O contrato declara "todo endpoint autentica antes do handler". Mapeei sete
+rotas e segui o input de cada uma. Quatro achados, por exposição:
 
-| O quê | Onde | Exposição | Veredito |
+| O quê | Onde | Quem alcança → o que consegue | Veredito |
 |---|---|---|---|
-| token de API no código | `borda/http.js:8` | qualquer clone do repo | *Rotacionar.* Apagar a linha não tira do histórico. |
-| `id` do request lido sem checar o dono | `borda/api.js:52` | qualquer usuário logado | *Corrigir.* Um usuário lê o pedido do outro — e o `validar()` do contrato não cobre autorização. |
-| stack trace na resposta 500 | `borda/erros.js:19` | quem provocar o erro | *Registrar.* Vaza caminho interno; vira gap conhecido se ficar. |
-| `eval` sobre config local | `scripts/build.js:31` | só quem edita o repo | *Manter.* Não alcançável de fora; listado para constar. |
+| IDOR: `pedidoId` do request usado sem checar dono | `borda/api.js:52` | qualquer usuário logado → lê o pedido de qualquer outro | *Corrigir.* A query filtra por `id`, nunca por dono. |
+| `DELETE /admin/user/:id` sem exigir papel | `borda/rotas.js:88` | qualquer logado → apaga conta alheia | *Corrigir.* A checagem de admin existe só no front. |
+| stack trace na resposta 500 | `borda/erros.js:19` | quem provocar o erro → vê caminho interno e a query | *Registrar.* Vira gap conhecido se ficar. |
+| token de API no código | `borda/http.js:8` | qualquer clone do repo → usa a chave | *Rotacionar.* Apagar a linha não tira do histórico. |
 
-Sobre o token: não vou colar o valor aqui — arquivo e linha bastam, e o
-relatório não será o segundo lugar onde ele vaza. Corrigir é o segundo passo;
-o primeiro é **revogar na origem**, e esse console é seu, não meu.
+Os dois primeiros são o coração disto, e nenhum tem "trecho suspeito" para o
+grep achar — a falha é a **ausência** de uma linha. No IDOR, a query é
+`SELECT … WHERE id = ?` com o `pedidoId` do request e nada mais; falta o
+`AND dono = usuarioLogado`. No `DELETE`, o handler roda sem olhar o papel — o
+contrato dizia para autenticar antes, e essa rota não autentica.
+
+Sobre o token: não colo o valor aqui — arquivo e linha bastam. E corrigir é o
+segundo passo; o primeiro é **revogar na origem**, e esse console é seu.
 
 **O que este relatório não cobre:** dependências (`npm audit` continua
-necessário), infraestrutura, e o que só pentest vê. Não achei outros segredos
-**com as buscas que fiz** — isso não é "não há".
+necessário), infraestrutura, e o que só pentest vê. As sete rotas foram olhadas;
+não afirmo nada sobre webhook ou fila, que este foco não incluiu.
 
-> _Os dois momentos que separam esta lâmina de um scanner: o veredito
-> "rotacionar" (segredo commitado não se resolve com Edit — o histórico do git
-> guarda o que a edição apaga) e o fecho declarando o não-coberto. "Não achei"
-> nunca vira "está seguro" — é o mesmo princípio do `L0`: silêncio não é
-> aprovação._
+> _O que separa a lâmina de um scanner está nos dois primeiros achados: eles
+> saem de **mapear a superfície e seguir o dado**, não de reconhecer um padrão.
+> E o fecho declara o não-coberto — "não achei" nunca vira "está seguro", o
+> mesmo princípio do `L0`._
 
-**Usuário:** rotaciona depois eu faço. corrige o segundo, o terceiro registra
+**Usuário:** corrige os dois primeiros. token eu rotaciono, o stack trace
+registra
 
-**Agente:** Sobre o segundo: a correção muda comportamento — o endpoint passa a
-recusar `id` de outro dono, e **nenhum teste cobre esse caminho** hoje. Proponho
-o teste antes: `test("recusa pedido de outro usuário")`, esperando 403. Escrevo
-os dois nessa ordem?
+**Agente:** Sobre o IDOR: a correção muda comportamento — o endpoint passa a
+recusar pedido de outro dono, e **nenhum teste cobre isso** hoje. Proponho o
+teste antes: `test("usuário não lê pedido de outro dono")`, o usuário A pedindo
+o recurso de B e esperando 403. Escrevo os dois nessa ordem, para os dois
+achados?
 
 **Usuário:** pode
 
-**Agente:** [escreve o teste, confirma que falha, aplica a correção; cada
-escrita passa pelo prompt do harness]
+**Agente:** [escreve os testes da brecha, confirma que falham, aplica as
+correções; cada escrita passa pelo prompt do harness]
 
-Teste vermelho antes, verde depois — a correção está provada. No `borda/http.js`
-o token virou `process.env.API_TOKEN`, e deixei o passo de revogação com você:
-enquanto o token antigo valer, a troca no código não resolveu nada. O stack
-trace ficou registrado como gap para `/docs:decidir`.
+Testes vermelhos antes, verdes depois — as duas brechas estão provadas. A query
+de `borda/api.js` ganhou `AND dono = :usuario`; o `DELETE` passou a exigir o
+papel `admin` no servidor, não só no front. Não toquei no token além de apontá-lo:
+enquanto a chave antiga valer, trocar o código não resolveu nada, e a revogação
+é sua. O stack trace ficou como gap para `/docs:decidir`.
 
 Typecheck, lint e testes: verdes.
 
-> _O teste veio **antes** da correção que muda comportamento — a mesma regra do
-> `/code:gambiarra`, porque as duas lâminas mexem em caminho sem cobertura. E a
-> troca por variável de ambiente não encerrou o achado: o comando repete que a
-> revogação é a parte que importa, em vez de dar o item por resolvido._
+> _O teste da brecha veio **antes** da correção — a mesma regra do
+> `/code:gambiarra`, porque as duas mexem em caminho sem cobertura. E o segredo
+> não foi dado por resolvido: o comando insiste que rotacionar na origem é a
+> parte que importa, não o Edit._

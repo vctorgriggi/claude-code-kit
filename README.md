@@ -24,7 +24,7 @@ mais afiada — a dependência é graciosa, nunca dura.
 | [**`/code:contrato`**](commands/code/contrato.md) | violação da regra de ouro e das proibições **deste** projeto | `CLAUDE.md` |
 | [**`/code:gambiarra`**](commands/code/gambiarra.md) | atalho que contorna em vez de resolver; erro engolido | o que o contorno esconde |
 | [**`/code:testes`**](commands/code/testes.md) | teste que não prova, que não é sólido, e o que **falta** | `SPEC.md`, `DOMAIN.md` |
-| [**`/code:seguranca`**](commands/code/seguranca.md) | o que um terceiro explora: segredo versionado, entrada crua, erro que vaza | quem alcança o quê — e o fecho diz o que **não** cobriu |
+| [**`/code:seguranca`**](commands/code/seguranca.md) | o que a aplicação sofre de fora: rota sem autorização, IDOR, injeção, abuso de pagamento e de IA | a superfície de ataque — quem alcança o quê, e o fecho diz o que **não** cobriu |
 | [**`/code:comentarios`**](commands/code/comentarios.md) | comentário que repete o código | o teste da deleção |
 | [**`/code:duplicacao`**](commands/code/duplicacao.md) | a mesma **decisão** escrita em dois lugares | "muda junto?" |
 | [**`/code:estrutura`**](commands/code/estrutura.md) | coisa no lugar errado; idioma do framework ignorado | `CLAUDE.md` + docs oficiais |

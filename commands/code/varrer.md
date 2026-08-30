@@ -59,9 +59,10 @@ Em cada amostra, procure só o que a camada mecânica não vê:
    declara.
 5. **Teste que não é sólido** — testa o mock, asserção frouxa, nome que promete
    mais do que a asserção prova.
-6. **Superfície explorável** — segredo versionado, entrada de fora usada crua
-   em query, comando ou HTML (detalhe em `/code:seguranca` — e nunca cole o
-   valor de um segredo no relatório; aponte a localização).
+6. **Superfície explorável** — rota que muda estado ou lê dado alheio sem checar
+   autorização, entrada de fora usada crua num sink, abuso do que a app faz de
+   valor (pagamento, IA) (detalhe em `/code:seguranca` — e nunca cole o valor de
+   um segredo no relatório; aponte a localização).
 
 ## 3. Relatório
 

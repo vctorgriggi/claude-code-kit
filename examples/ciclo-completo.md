@@ -48,7 +48,7 @@ Cada uma resolve um tipo de achado, e todas **reportam antes de aplicar**:
 | --- | --- |
 | erro engolido, atalho, `@ts-ignore` sem motivo | [`/code:gambiarra`](03-gambiarra-e-testes.md) |
 | teste que não prova, ou promessa sem prova | [`/code:testes`](03-gambiarra-e-testes.md) |
-| segredo versionado, entrada de fora usada crua | [`/code:seguranca`](04-seguranca.md) |
+| rota sem autorização, IDOR, injeção, abuso de pagamento ou de IA | [`/code:seguranca`](04-seguranca.md) |
 | ruído de comentário | [`/code:comentarios`](06-comentarios-e-duplicacao.md) |
 | a mesma decisão em dois lugares | [`/code:duplicacao`](06-comentarios-e-duplicacao.md) |
 | coisa no lugar errado, idioma do framework ignorado | [`/code:estrutura`](05-estrutura.md) |
