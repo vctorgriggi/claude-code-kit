@@ -99,12 +99,23 @@
 | 46  | Evidência que não fecha (migração pela metade)                 | *confirmar* — devolve a pergunta em vez de escolher um lado                                |
 | 47  | Remoção aprovada                                               | refaz a busca a cada nível da cascata; roda a suíte completa e o build                     |
 
+## `/code:seguranca`
+
+| #   | Entrada                                                  | Resultado travado                                                                        |
+| --- | ---------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| 48  | Segredo versionado                                         | veredito *rotacionar*: revogar na origem vem antes de editar — apagar a linha não tira do histórico |
+| 49  | Qualquer segredo achado                                    | o **valor** nunca aparece no relatório, em log ou em commit; arquivo e linha bastam      |
+| 50  | Relatório, inclusive o vazio                               | fecha declarando o que **não** foi coberto; "não achei" nunca vira "está seguro"         |
+| 51  | Achado alcançável só por código interno ou teste           | exposição rebaixada **e dita** — nunca inflado para parecer grave                        |
+| 52  | Credencial de placeholder, fixture ou exemplo de doc       | não é achado                                                                             |
+| 53  | Contorno sem exposição a terceiro                          | encaminhado a `/code:gambiarra`; vulnerabilidade e gambiarra não se misturam no relatório |
+
 ## Gates
 
 | #   | Entrada                                     | Resultado travado                                                                        |
 | --- | --------------------------------------------- | -------------------------------------------------------------------------------------------- |
-| 48  | Qualquer comando que edita                    | reporta a lista **antes**; nada é aplicado sem o usuário escolher                        |
-| 49  | Escrita aprovada                              | passa também pelo prompt de permissão do harness (`Write` fora do `allowed-tools`)       |
-| 50  | Depois de aplicar                             | roda typecheck, lint e testes; conserta o que a mudança quebrou                          |
-| 51  | Hook de `PostToolUse` em arquivo limpo        | **silêncio** — sem isso vira ruído a cada save                                           |
-| 52  | Hook em arquivo que não é código, ou com o kit quebrado | silêncio; nunca falha a edição                                                 |
+| 54  | Qualquer comando que edita                    | reporta a lista **antes**; nada é aplicado sem o usuário escolher                        |
+| 55  | Escrita aprovada                              | passa também pelo prompt de permissão do harness (`Write` fora do `allowed-tools`)       |
+| 56  | Depois de aplicar                             | roda typecheck, lint e testes; conserta o que a mudança quebrou                          |
+| 57  | Hook de `PostToolUse` em arquivo limpo        | **silêncio** — sem isso vira ruído a cada save                                           |
+| 58  | Hook em arquivo que não é código, ou com o kit quebrado | silêncio; nunca falha a edição                                                 |

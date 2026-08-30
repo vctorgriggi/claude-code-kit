@@ -113,7 +113,7 @@ export const REGRAS = [
     severidade: "violacao",
     titulo: "catch não engole o erro em silêncio",
     porque:
-      "Catch vazio transforma falha em comportamento aleatório mais adiante, e apaga o rastro que apontaria a origem. Se ignorar é a decisão certa, ela precisa estar escrita.",
+      "Catch vazio transforma falha em comportamento aleatório mais adiante, e apaga o rastro que apontaria a origem. Se ignorar é a decisão certa, ela precisa estar escrita. Limite declarado: sem AST, a regra só enxerga catch cujo corpo não abre outro bloco — um catch com if ou loop dentro fica para a lâmina de julgamento (/code:gambiarra), que lê qualquer forma.",
     ok: "try { cache.limpar(); } catch { /* cache é best-effort; falha aqui não afeta a resposta */ }",
     // codecheck: ignore J3 — este é o exemplo "mal" do catálogo, não código
     ruim: "try { cache.limpar(); } catch (e) {}",
@@ -124,7 +124,7 @@ export const REGRAS = [
     severidade: "violacao",
     titulo: "teste que não afirma nada",
     porque:
-      "Teste sem asserção passa sempre — inclusive quando o código quebra. É pior que teste ausente: a suíte verde afirma uma cobertura que não existe.",
+      "Teste sem asserção passa sempre — inclusive quando o código quebra. É pior que teste ausente: a suíte verde afirma uma cobertura que não existe. Limite declarado: a regra reconhece o corpo em arrow function; test('x', function () { … }) passa batido aqui e fica para a lâmina de julgamento (/code:testes), que lê qualquer forma.",
     ok: "test('recusa centavo fracionário', () => {\n  assert.throws(() => total([{ centavos: 1.5 }]));\n});",
     ruim: "test('total', () => {\n  total([{ centavos: 100 }]);\n});",
   },
@@ -701,7 +701,8 @@ function explicar(id) {
   }
   const indenta = (s) => s.split("\n").map((l) => `    ${l}`).join("\n");
   console.log(`${r.id} — ${r.titulo}`);
-  console.log(`  família ${r.familia} · ${r.severidade}${r.promovivel ? " (promovível)" : ""}`);
+  const rotulo = { violacao: "violação", aviso: "aviso" }[r.severidade];
+  console.log(`  família ${r.familia} · ${rotulo}${r.promovivel ? " (promovível)" : ""}`);
   console.log(`\n  ${r.porque}\n`);
   console.log("  bem:");
   console.log(indenta(r.ok));

@@ -59,6 +59,9 @@ Em cada amostra, procure só o que a camada mecânica não vê:
    declara.
 5. **Teste que não é sólido** — testa o mock, asserção frouxa, nome que promete
    mais do que a asserção prova.
+6. **Superfície explorável** — segredo versionado, entrada de fora usada crua
+   em query, comando ou HTML (detalhe em `/code:seguranca` — e nunca cole o
+   valor de um segredo no relatório; aponte a localização).
 
 ## 3. Relatório
 
@@ -66,7 +69,8 @@ Uma mensagem, ordenada por **consequência** — nunca por arquivo nem por ordem
 de descoberta (GRAMATICA §5):
 
 - **CRÍTICO** — vai causar bug, ou já está causando: contrato violado, erro
-  engolido em caminho que importa, teste que afirma cobertura inexistente.
+  engolido em caminho que importa, teste que afirma cobertura inexistente,
+  segredo versionado ou entrada de fora usada crua.
 - **ALTO** — custa caro na próxima mudança: duplicação de decisão, gambiarra
   em código quente, fronteira de camada furada.
 - **MÉDIO** — atrito acumulado: comentário-ruído, volume, literal repetido.

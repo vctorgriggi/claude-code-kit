@@ -4,7 +4,10 @@ argument-hint: [quantidade | tudo | pasta a focar]
 # Edit sem Write: remover comentário é edição pontual em arquivo existente;
 # criar arquivo nunca faz parte. Cada escrita ainda passa pelo prompt do
 # harness — segundo gate além da aprovação da lista.
-allowed-tools: Read, Glob, Grep, Edit, Bash(git blame:*), Bash(git log:*), Bash(ls:*), Bash(node ~/.claude/bin/codecheck.mjs:*)
+# npm run/npm test/node --test: o §5 cobra lint e typecheck após remover, e
+# verificação obrigatória não deve esbarrar no prompt. Runner de outra stack
+# passa pelo prompt do harness, como qualquer não listado.
+allowed-tools: Read, Glob, Grep, Edit, Bash(git blame:*), Bash(git log:*), Bash(ls:*), Bash(npm test:*), Bash(npm run:*), Bash(node --test:*), Bash(node ~/.claude/bin/codecheck.mjs:*)
 disable-model-invocation: true
 ---
 

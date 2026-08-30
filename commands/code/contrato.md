@@ -1,7 +1,10 @@
 ---
 description: Confere o código contra o contrato que o próprio projeto declarou no CLAUDE.md — regra de ouro, proibições e fronteiras. É a lâmina que nenhuma ferramenta genérica tem. Reporta antes de aplicar.
 argument-hint: [pasta ou área para focar]
-allowed-tools: Read, Glob, Grep, Edit, Bash(git log:*), Bash(ls:*), Bash(node ~/.claude/bin/codecheck.mjs:*)
+# npm test/npm run/node --test: o "Aplique e verifique" cobra typecheck, lint e
+# testes, e verificação obrigatória não deve esbarrar no prompt. Runner de outra
+# stack (pytest, go test) passa pelo prompt do harness, como qualquer não listado.
+allowed-tools: Read, Glob, Grep, Edit, Bash(git log:*), Bash(ls:*), Bash(npm test:*), Bash(npm run:*), Bash(node --test:*), Bash(node ~/.claude/bin/codecheck.mjs:*)
 disable-model-invocation: true
 ---
 

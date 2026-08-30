@@ -1,7 +1,10 @@
 ---
 description: Encontra atalhos que contornam em vez de resolver — escape sem porquê, erro engolido, retry mágico, número que compensa outro bug — e separa dívida deliberada de acidente. Reporta antes de aplicar.
 argument-hint: [pasta, arquivo ou área para focar]
-allowed-tools: Read, Glob, Grep, Edit, Bash(git log:*), Bash(git blame:*), Bash(git diff:*), Bash(ls:*), Bash(node ~/.claude/bin/codecheck.mjs:*)
+# npm test/npm run/node --test: o "Aplique e verifique" cobra typecheck, lint e
+# testes, e verificação obrigatória não deve esbarrar no prompt. Runner de outra
+# stack (pytest, go test) passa pelo prompt do harness, como qualquer não listado.
+allowed-tools: Read, Glob, Grep, Edit, Bash(git log:*), Bash(git blame:*), Bash(git diff:*), Bash(ls:*), Bash(npm test:*), Bash(npm run:*), Bash(node --test:*), Bash(node ~/.claude/bin/codecheck.mjs:*)
 disable-model-invocation: true
 ---
 
@@ -57,7 +60,11 @@ existe mas está solto na cabeça de alguém, o achado é *"falta registrar"*, n
 - versão duplicada de uma função com sufixo `2`, `New`, `Old`, `Tmp`
 
 **Configuração encravada**
-- URL, credencial de ambiente, caminho absoluto de máquina de alguém
+- URL de ambiente, caminho absoluto de máquina de alguém
+- Credencial versionada **não fica aqui**: é achado de `/code:seguranca`, que
+  sabe que apagar a linha não a tira do histórico do git. A fronteira é essa —
+  contorno que esconde bug é gambiarra; contorno que um terceiro explora é
+  segurança.
 
 ## 3. Verifique antes de acusar
 

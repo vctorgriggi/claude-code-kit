@@ -48,10 +48,11 @@ Cada uma resolve um tipo de achado, e todas **reportam antes de aplicar**:
 | --- | --- |
 | erro engolido, atalho, `@ts-ignore` sem motivo | [`/code:gambiarra`](03-gambiarra-e-testes.md) |
 | teste que não prova, ou promessa sem prova | [`/code:testes`](03-gambiarra-e-testes.md) |
-| ruído de comentário | [`/code:comentarios`](05-comentarios-e-duplicacao.md) |
-| a mesma decisão em dois lugares | [`/code:duplicacao`](05-comentarios-e-duplicacao.md) |
-| coisa no lugar errado, idioma do framework ignorado | [`/code:estrutura`](04-estrutura.md) |
-| símbolo que ninguém usa, export desnecessário | [`/code:morto`](06-morto.md) |
+| segredo versionado, entrada de fora usada crua | [`/code:seguranca`](04-seguranca.md) |
+| ruído de comentário | [`/code:comentarios`](06-comentarios-e-duplicacao.md) |
+| a mesma decisão em dois lugares | [`/code:duplicacao`](06-comentarios-e-duplicacao.md) |
+| coisa no lugar errado, idioma do framework ignorado | [`/code:estrutura`](05-estrutura.md) |
+| símbolo que ninguém usa, export desnecessário | [`/code:morto`](07-morto.md) |
 
 ## O que muda quando existe contrato
 
@@ -106,7 +107,7 @@ D1 — literal repetido três vezes ou mais
 | --- | --- | --- |
 | a qualquer momento, e no CI | `codecheck .` | nada |
 | ao herdar ou revisitar | `/code:varrer` | nada |
-| conforme o retrato apontar | as cinco lâminas | só o que você aprovar |
+| conforme o retrato apontar | as sete lâminas | só o que você aprovar |
 | com contrato instalado | `/code:contrato` | só o que você aprovar |
 | ao escrever cada arquivo | (hook) | nada |
 

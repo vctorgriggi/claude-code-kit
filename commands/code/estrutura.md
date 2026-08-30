@@ -1,7 +1,10 @@
 ---
 description: Confere se o código segue a estrutura declarada no CLAUDE.md e o idioma do framework — onde a coisa mora, como a camada conversa, o que atravessa fronteira. Reporta antes de aplicar.
 argument-hint: [pasta ou camada para focar]
-allowed-tools: Read, Glob, Grep, Edit, WebFetch, WebSearch, Bash(git log:*), Bash(ls:*), Bash(tree:*), Bash(cat:*), Bash(node ~/.claude/bin/codecheck.mjs:*)
+# npm test/npm run/node --test: o "Aplique e verifique" cobra typecheck, lint e
+# testes, e verificação obrigatória não deve esbarrar no prompt. Runner de outra
+# stack (pytest, go test) passa pelo prompt do harness, como qualquer não listado.
+allowed-tools: Read, Glob, Grep, Edit, WebFetch, WebSearch, Bash(git log:*), Bash(ls:*), Bash(tree:*), Bash(cat:*), Bash(npm test:*), Bash(npm run:*), Bash(node --test:*), Bash(node ~/.claude/bin/codecheck.mjs:*)
 disable-model-invocation: true
 ---
 

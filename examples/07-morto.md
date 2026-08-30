@@ -1,4 +1,4 @@
-# Exemplo 6: /code:morto — a lâmina que apaga, e por isso prova antes
+# Exemplo 7: /code:morto — a lâmina que apaga, e por isso prova antes
 
 O único comando cujo resultado é remover. Um falso positivo aqui não gera
 ruído: gera bug. Blockquotes em itálico são anotações.

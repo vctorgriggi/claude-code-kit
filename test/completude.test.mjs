@@ -121,6 +121,7 @@ test("a numeração das transcrições segue a ordem de consequência", async ()
     ["varrer", "o retrato"],
     ["contrato", "CRÍTICO"],
     ["gambiarra", "CRÍTICO"],
+    ["seguranca", "CRÍTICO"],
     ["estrutura", "ALTO"],
     ["comentarios", "MÉDIO"],
     ["morto", "apaga"],
